@@ -456,6 +456,7 @@ Populated by `gsd-roadmapper` on 2026-04-28. Every v1 REQ-ID maps to exactly one
 | POLISH-06 | Phase 17 | Pending |
 | POLISH-07..12 | (v1.6 informal) | Done |
 | DIORAMA-01..07 | (v1.7 informal) | Done |
-| PROG-01..03 | Phase 18 | Pending |
-| OPS-01..03 | Phase 19 | Pending |
-| AUDIO-06..08 | Phase 20 | Pending |
+| PROG-01..03 | Phase 18 | Done |
+| OPS-01 | Phase 19 | Stashed (workflow scope) |
+| OPS-02..03 | Phase 19 | Done |
+| AUDIO-06..08 | Phase 20 | Done |

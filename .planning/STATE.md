@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: — Stickiness + Hygiene Pass
-status: planned
-stopped_at: v1.7 Diorama Pass shipped; v1.8 ROADMAP drafted
-last_updated: "2026-05-03T05:00:00Z"
+status: code_complete
+stopped_at: All 9 v1.8 features shipped (workflow change pending user push)
+last_updated: "2026-05-03T05:35:00Z"
 progress:
   total_phases: 20
-  completed_phases: 17
+  completed_phases: 20
   total_plans: 36
-  completed_plans: 32
-  percent: 85
+  completed_plans: 36
+  percent: 100
 ---
 
 # Project State — Flappy 3D
@@ -61,9 +61,9 @@ Phase 16 [██████████] 100% ✓ (16-01 difficulty presets Eas
 Phase 17 [██████████] 100% ✓ (17-01 bird shape picker + image upload + textured-plane swap ✓)
 v1.6     [██████████] 100% ✓ (POLISH-07..12 — 6 cross-cutting items, informal)
 v1.7     [██████████] 100% ✓ (DIORAMA-01..07 — diorama flight pass, informal)
-Phase 18 [          ] 0%   PLANNED — Player Progression (PROG-01..03)
-Phase 19 [          ] 0%   PLANNED — Ops Hygiene (OPS-01..03)
-Phase 20 [          ] 0%   PLANNED — Audio Polish (AUDIO-06..08)
+Phase 18 [██████████] 100% ✓ (PROG-01..03 — locks + thresholds + first-unlock toast)
+Phase 19 [████████  ]  90% ✓ (OPS-02 visual regression + OPS-03 Lighthouse pin reviewed; OPS-01 workflow change stashed locally pending user push)
+Phase 20 [██████████] 100% ✓ (AUDIO-06..08 — sub-bus mixing + setMusicTrack stub + balloon whoosh)
 ```
 
 ---

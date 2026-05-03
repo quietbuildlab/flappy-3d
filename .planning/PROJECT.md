@@ -72,7 +72,7 @@ midground shrubs + parallax), camera follow + FOV pulse, title-scene
 framing via flex-grow spacer, depth-event balloon. DIORAMA-01..07.
 Bundle: 203.10KB.
 
-### v1.8 Milestone — Stickiness + Hygiene Pass (PLANNED 2026-05-03)
+### v1.8 Milestone — Stickiness + Hygiene Pass (CODE-COMPLETE 2026-05-03)
 
 Project is visually polished but every session looks identical (no
 retention hook) and ops debt has accumulated. Three independent phases:
