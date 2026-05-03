@@ -43,9 +43,31 @@ test.describe('Flappy 3D — v1.5 UAT (Approachability + Customization)', () => 
   })
 
   test('Phase 17 — Bird shape persists when changed to Cube', async ({ page }) => {
-    await openSettings(page)
+    // v1.8 Phase 18: cube is now locked-by-default. Plant a v5 save with
+    // cube already unlocked so the test can verify shape switching itself
+    // (independent of the unlock mechanism, which is covered in v1.8 UAT).
+    await page.goto(URL, { waitUntil: 'networkidle' })
+    await page.evaluate(() => {
+      const v5 = {
+        schemaVersion: 5, bestScore: 0,
+        settings: {
+          sound: true, music: true, reduceMotion: 'auto', palette: 'default',
+          flapTrail: false, lastMode: 'endless', cameraBob: false,
+          difficulty: 'easy', birdShape: 'sphere', birdImage: null,
+          quality: 'auto', unlocks: ['sphere', 'cube'],
+          volumeMaster: 0.7, volumeMusic: 0.4, volumeSfx: 0.6,
+        },
+        leaderboardByMode: { endless: [], timeAttack: [], daily: [] },
+        dailyAttempts: {},
+      }
+      localStorage.setItem('flappy-3d:v1', JSON.stringify(v5))
+    })
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForSelector('.title-settings-btn', { state: 'visible', timeout: 15000 })
+    await page.locator('.title-settings-btn').evaluate((el) => (el as HTMLButtonElement).click())
+    await expect(page.locator('text=Difficulty')).toBeVisible({ timeout: 5000 })
+
     const shapePicker = page.locator('.settings-picker-shapes').first()
-    await expect(shapePicker).toBeVisible()
     await shapePicker.locator('button:has-text("Cube")').evaluate((el) => (el as HTMLButtonElement).click())
     await page.waitForTimeout(120)
     const persisted = await page.evaluate(() => {
