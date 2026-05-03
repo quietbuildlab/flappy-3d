@@ -223,6 +223,15 @@ body.palette-colorblind {
   text-shadow: 0 2px 12px rgba(0,0,0,0.4);
   margin: 0;
 }
+/* Diorama Pass v1.7 — invisible flex grow band that separates the logo
+   from the bottom DOM stack (mode picker / leaderboard / CTA). The 3D
+   bird mascot lives in this band — works on any aspect because it's
+   centered viewport space, not a fixed world offset. */
+.title-bird-zone {
+  flex: 1 1 auto;
+  min-height: 24vh;
+  pointer-events: none;
+}
 .title-cta {
   font-size: 1.1rem;
   opacity: 0.85;

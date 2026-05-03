@@ -192,13 +192,13 @@ if (!WebGL.isWebGL2Available()) {
   // Title-screen mascot positioning: lift bird above viewport center so it
   // doesn't sit behind the mode picker / leaderboard, and pull forward in z
   // so it reads as the foreground character. Resets to (0,0,0) on roundStarted.
-  // Title-screen mascot framing — DOM (logo / mode picker / leaderboard /
-  // CTA) stacks down the centerline. Pulling the bird OFF-CENTER (left of
-  // logo, slightly above viewport center) gets it clear of every overlay
-  // element while still being the dominant visible character. Demo pipes
-  // continue scrolling past on the right side as a "ready to fly" frame.
-  const TITLE_MASCOT_X = -2.4
-  const TITLE_MASCOT_Y = 0.6
+  // Title-screen mascot framing — TitleScreen.tsx adds a `.title-bird-zone`
+  // flex-grow spacer between the logo and the bottom DOM stack, opening
+  // a clear band centered around viewport ~34vh. World y=1.0 maps to that
+  // band on both desktop and mobile aspect ratios. Bird stays at world x=0
+  // (centered) so it lines up under the centered logo.
+  const TITLE_MASCOT_X = 0
+  const TITLE_MASCOT_Y = 1.0
   const TITLE_MASCOT_Z = 0.5
   loop.add({
     step: (dt: number) => {

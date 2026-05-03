@@ -90,6 +90,10 @@ export function TitleScreen({ active, actor, leaderboard, onSettings, onInstall,
         )
       )
     ),
+    // Diorama Pass v1.7: empty grow-element creates a clear band between
+    // the logo and the bottom DOM stack so the 3D bird mascot has room
+    // to read on both desktop and mobile aspect ratios.
+    h('div', { className: 'title-bird-zone', 'aria-hidden': 'true' }),
     h(ModePicker, { mode, onModeChange }),
     mode === 'daily' ? (() => {
       const attempt = storage.getDailyAttempt(todayDate())
