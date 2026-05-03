@@ -40,15 +40,15 @@ for (const vp of viewports) {
       await page.evaluate(() => localStorage.removeItem('flappy-3d:v1'))
       await page.reload({ waitUntil: 'networkidle' })
       await page.waitForSelector('#scene', { state: 'visible' })
-      await page.waitForTimeout(800)  // let UI mount
-      // Start round via Space key — InputManager listens on window for ' '
-      // and triggers a flap; on title state that sends START.
+      await page.waitForTimeout(800)
+      // First space: state=title → SEND START. Subsequent spaces: actual flap.
       await page.keyboard.press('Space')
-      // Flap a couple more times so the bird stays mid-air for the shot
-      await page.keyboard.press('Space')
-      await page.waitForTimeout(900)
-      await page.keyboard.press('Space')
-      await page.waitForTimeout(700)
+      await page.waitForTimeout(200)
+      // Flap rapidly (~every 250ms) to stay airborne for ~1.5s, then shoot.
+      for (let i = 0; i < 5; i++) {
+        await page.keyboard.press('Space')
+        await page.waitForTimeout(250)
+      }
       await page.screenshot({
         path: path.join(OUT_DIR, `${vp.name}-gameplay.png`),
         fullPage: false,
