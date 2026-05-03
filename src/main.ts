@@ -140,6 +140,9 @@ if (!WebGL.isWebGL2Available()) {
     const state = actor.getSnapshot().value
     if (state === 'title') {
       actor.send({ type: 'START' })
+      // v1.9 fix: queue a flap so the bird rises immediately on the first
+      // playing frame instead of falling for 0.65s before user reaction.
+      physics.queueFlap()
     } else if (state === 'playing') {
       physics.queueFlap()
       actor.send({ type: 'FLAP' })
@@ -153,6 +156,8 @@ if (!WebGL.isWebGL2Available()) {
       }
     } else if (state === 'gameOver') {
       actor.send({ type: 'RESTART' })
+      // v1.9 fix: same as title — bird rises on first playing frame after restart.
+      physics.queueFlap()
     }
   })
 
@@ -338,6 +343,11 @@ if (!WebGL.isWebGL2Available()) {
     bird.prevPosition.set(0, 0, 0)
     bird.mesh.rotation.z = 0
     bird.syncMesh()
+    // v1.9 fix: queue a flap so the bird rises on the first playing frame
+    // after RESPAWN_DONE — gives ~1s of breathing room before gravity drops
+    // it to the floor (otherwise the user "loses a heart without touching
+    // anything" because they were still distracted by the red flash).
+    physics.queueFlap()
     // Release any currently-on-screen obstacles so the bird doesn't respawn
     // inside a pipe (CollisionSystem is gated on 'playing' so it'd ignore
     // the overlap during respawn but instantly HIT once 'playing' resumes).
