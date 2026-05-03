@@ -3,8 +3,14 @@ import preact from '@preact/preset-vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Deploy targets serve at different paths:
+//   - GitHub Pages: https://<user>.github.io/flappy-3d/  → base = /flappy-3d/
+//   - Cloudflare Pages: https://flappy-3d.pages.dev/      → base = /
+// Set VITE_BASE in env to override (CI-driven). Default keeps GH Pages working.
+const BASE = process.env.VITE_BASE ?? '/flappy-3d/'
+
 export default defineConfig({
-  base: '/flappy-3d/',
+  base: BASE,
   plugins: [
     preact(),
     VitePWA({
@@ -36,8 +42,10 @@ export default defineConfig({
         background_color: '#1a1a1a',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/flappy-3d/',
-        scope: '/flappy-3d/',
+        // start_url + scope must match the served path. Mirror BASE so the PWA
+        // installs correctly on whichever host this build targets.
+        start_url: BASE,
+        scope: BASE,
         icons: [
           {
             src: 'icons/icon-192.png',
