@@ -27,12 +27,13 @@ import { ScoreSystem } from './systems/ScoreSystem'
 import { ObjectPool } from './pools/ObjectPool'
 import { ObstaclePair } from './entities/ObstaclePair'
 import { Background } from './entities/Background'
+import { WorldLayers } from './entities/WorldLayers'
 import { Clouds } from './entities/Clouds'
 import { gameMachine } from './machine/gameMachine'
 import { StorageManager } from './storage/StorageManager'
 import { AudioManager } from './audio/AudioManager'
 import { UIBridge } from './ui/UIBridge'
-import { squashStretch, screenShake, wingFlap } from './anim/anim'
+import { squashStretch, screenShake, wingFlap, pulseFOV } from './anim/anim'
 import { createParticles } from './particles/createParticles'
 import { prefersReducedMotion } from './a11y/motion'
 import { PIPE_WIDTH, PIPE_DEPTH, PIPE_COLOR, POOL_SIZE } from './constants'
@@ -75,6 +76,7 @@ if (!WebGL.isWebGL2Available()) {
   )
 
   const background = new Background(scene)
+  const worldLayers = new WorldLayers(scene)
   const clouds = new Clouds(scene)
 
   const loop = new GameLoop(renderer, scene, camera)
@@ -156,33 +158,44 @@ if (!WebGL.isWebGL2Available()) {
           ? 1.8
           : difficultyFrom(actor.getSnapshot().context.score, preset).scrollSpeed
         clouds.step(dt, speed)
+        worldLayers.scroll(dt, speed)
       }
     },
   })
   loop.add({ step: (dt: number) => bird.stepGhosts(dt) })
   // Phase 13: animate sky shader colors over a 60s cycle (motion-gated)
   loop.add({ step: (dt: number) => background.cycleSky(dt, prefersReducedMotion(storage)) })
-  // Phase 15 POLISH-03: opt-in camera y-bob following bird velocity
-  // Double-gated: Settings toggle ON AND prefersReducedMotion is false
+  // Camera follow + opt-in velocity bob (Diorama Pass v1.7).
+  //   - Always-on subtle position follow (0.18 of bird.y, lerped) — gives
+  //     a gentle parallax read on the layered world without free-camera feel.
+  //   - Velocity-based bob ADDED ON TOP when the cameraBob Settings toggle
+  //     is on (Phase 15 POLISH-03). Off by default for motion-sensitive users.
+  //   - Reduce-motion snaps to base regardless of toggle.
   const CAMERA_BASE_Y = 0
+  const CAMERA_FOLLOW_FACTOR = 0.18
   const CAMERA_BOB_FACTOR = 0.05
-  const CAMERA_BOB_LERP = 0.08
+  const CAMERA_LERP = 0.08
   loop.add({
     step: (_dt: number) => {
       const s = actor.getSnapshot().value
       if (s !== 'playing' && s !== 'dying') return
-      if (!storage.getSettings().cameraBob || prefersReducedMotion(storage)) {
+      if (prefersReducedMotion(storage)) {
         if (camera.position.y !== CAMERA_BASE_Y) camera.position.y = CAMERA_BASE_Y
         return
       }
-      const target = CAMERA_BASE_Y + bird.velocity.y * CAMERA_BOB_FACTOR
-      camera.position.y += (target - camera.position.y) * CAMERA_BOB_LERP
+      const follow = bird.position.y * CAMERA_FOLLOW_FACTOR
+      const bob = storage.getSettings().cameraBob ? bird.velocity.y * CAMERA_BOB_FACTOR : 0
+      const target = CAMERA_BASE_Y + follow + bob
+      camera.position.y += (target - camera.position.y) * CAMERA_LERP
     },
   })
   // Title-screen mascot positioning: lift bird above viewport center so it
   // doesn't sit behind the mode picker / leaderboard, and pull forward in z
   // so it reads as the foreground character. Resets to (0,0,0) on roundStarted.
-  const TITLE_MASCOT_Y = 1.2
+  // Title-screen mascot framing — bird sits a bit above center, low enough
+  // that the floating logo (top of viewport, CSS) and the mode picker /
+  // leaderboard (bottom, CSS) clearly bracket it as the focal element.
+  const TITLE_MASCOT_Y = 0.7
   const TITLE_MASCOT_Z = 0.5
   loop.add({
     step: (dt: number) => {
@@ -337,6 +350,7 @@ if (!WebGL.isWebGL2Available()) {
             0xffd166,
           )
           ui.triggerMilestoneFlash()
+          pulseFOV(camera)  // tiny zoom-out → back, ~400ms
         }
       }
     }

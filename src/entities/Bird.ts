@@ -1,5 +1,6 @@
 import {
   Mesh,
+  Group,
   SphereGeometry,
   BoxGeometry,
   ConeGeometry,
@@ -34,11 +35,12 @@ const EMOJI_FOR_SHAPE: Record<string, string> = {
 
 export class Bird {
   readonly mesh: Mesh<BufferGeometry, Material>
-  readonly leftWing: Mesh<BoxGeometry, MeshToonMaterial>
-  readonly rightWing: Mesh<BoxGeometry, MeshToonMaterial>
+  readonly leftWing: Mesh<SphereGeometry, MeshToonMaterial>
+  readonly rightWing: Mesh<SphereGeometry, MeshToonMaterial>
   readonly leftEye: Mesh<SphereGeometry, MeshBasicMaterial>
   readonly rightEye: Mesh<SphereGeometry, MeshBasicMaterial>
   readonly beak: Mesh<ConeGeometry, MeshToonMaterial>
+  readonly tail: Group  // 3 tail-feather cones, grouped for hide/show + dispose
   readonly position: Vector3 = new Vector3(0, 0, 0)
   readonly velocity: Vector3 = new Vector3(0, 0, 0)
   readonly prevPosition: Vector3 = new Vector3(0, 0, 0)  // for render interpolation
@@ -60,36 +62,52 @@ export class Bird {
     this.mesh.scale.set(1, 0.65, 0.8)
     scene.add(this.mesh)
 
-    // Wing meshes — thin boxes, children of bird.mesh so they inherit squashStretch
-    const wingGeo = new BoxGeometry(0.6, 0.05, 0.3)
-    const wingMat = new MeshToonMaterial({ color: 0xff7043, side: DoubleSide })
+    // Wing meshes — rounded ellipsoid (sphere scaled flat) instead of slab boxes.
+    // Reads as a soft wing rather than a paddle. Anchor on +Z/-Z (sides facing
+    // camera) and lift slightly above body center so wings flare visibly.
+    const wingGeo = new SphereGeometry(0.32, 12, 8)
+    const wingMat = new MeshToonMaterial({ color: 0xff8a5c, side: DoubleSide })
     this.leftWing = new Mesh(wingGeo, wingMat)
-    this.leftWing.position.set(-0.4, 0, 0)
+    this.leftWing.scale.set(0.45, 0.18, 1.0)  // long along Z, thin in Y
+    this.leftWing.position.set(0, 0.05, -0.30)
     this.mesh.add(this.leftWing)
 
     this.rightWing = new Mesh(wingGeo, wingMat.clone())
-    this.rightWing.position.set(0.4, 0, 0)
+    this.rightWing.scale.set(0.45, 0.18, 1.0)
+    this.rightWing.position.set(0, 0.05, 0.30)
     this.mesh.add(this.rightWing)
 
-    // Eyes — two small black spheres on the front (toward +X = facing scroll direction)
-    const eyeGeo = new SphereGeometry(0.07, 10, 8)
+    // Eyes — slightly bigger (was 0.07 → 0.09) so they read at gameplay distance
+    const eyeGeo = new SphereGeometry(0.09, 12, 10)
     const eyeMat = new MeshBasicMaterial({ color: 0x111111 })
     this.leftEye = new Mesh(eyeGeo, eyeMat)
-    this.leftEye.position.set(0.20, 0.18, 0.22)
+    this.leftEye.position.set(0.20, 0.20, 0.22)
     this.mesh.add(this.leftEye)
 
     this.rightEye = new Mesh(eyeGeo, eyeMat)
-    this.rightEye.position.set(0.20, 0.18, -0.22)
+    this.rightEye.position.set(0.20, 0.20, -0.22)
     this.mesh.add(this.rightEye)
 
-    // Beak — small forward-pointing cone (orange-yellow). Rotated so the
-    // cone tip points in +X (the bird's facing direction).
-    const beakGeo = new ConeGeometry(0.10, 0.22, 6)
+    // Beak — forward-pointing cone (orange-yellow). Tip → +X (facing direction)
+    const beakGeo = new ConeGeometry(0.10, 0.24, 6)
     const beakMat = new MeshToonMaterial({ color: 0xffb74d })
     this.beak = new Mesh(beakGeo, beakMat)
-    this.beak.position.set(0.36, 0, 0)
-    this.beak.rotation.z = -Math.PI / 2  // tip → +X
+    this.beak.position.set(0.36, 0.02, 0)
+    this.beak.rotation.z = -Math.PI / 2
     this.mesh.add(this.beak)
+
+    // Tail feathers — 3 small cones at the back (-X), fanned outward in Z.
+    // Grouped so we can show/hide as one unit (hidden in emoji/image modes).
+    this.tail = new Group()
+    const tailGeo = new ConeGeometry(0.07, 0.22, 5)
+    const tailMat = new MeshToonMaterial({ color: 0xff7043 })
+    for (const z of [-0.10, 0, 0.10]) {
+      const feather = new Mesh(tailGeo, tailMat)
+      feather.position.set(-0.32, 0.05, z)
+      feather.rotation.z = Math.PI / 2  // tip → -X
+      this.tail.add(feather)
+    }
+    this.mesh.add(this.tail)
 
     // Pre-create ghost meshes (flap trail — BEAUTY-06, D-09)
     const ghostGeo = new SphereGeometry(0.35, 8, 6)  // lower poly — they're ephemeral
@@ -211,6 +229,7 @@ export class Bird {
     this.leftEye.visible = on
     this.rightEye.visible = on
     this.beak.visible = on
+    this.tail.visible = on
   }
 
   // Called on each flap — snapshots current bird world position into next ghost slot
@@ -284,6 +303,13 @@ export class Bird {
     this.rightEye.material.dispose()  // shares material with leftEye, double dispose is safe
     this.beak.geometry.dispose()
     this.beak.material.dispose()
+    // Tail feathers share geometry + material — single dispose is enough
+    this.tail.traverse((obj) => {
+      if (obj instanceof Mesh) {
+        obj.geometry.dispose()
+        ;(obj.material as Material).dispose()
+      }
+    })
     for (const ghost of this.ghosts) {
       scene.remove(ghost)
       ghost.geometry.dispose()

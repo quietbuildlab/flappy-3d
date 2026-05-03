@@ -28,8 +28,14 @@ export class PhysicsSystem {
 
     if (state === 'dying') {
       this.bird.mesh.rotation.z += 1.5 * dt
-    } else if (state === 'playing' || state === 'title') {
+    } else if (state === 'title') {
       this.bird.mesh.rotation.z = 0
+    } else if (state === 'playing') {
+      // Velocity-based pitch: nose-up when rising, nose-down when falling.
+      // Lerp toward target so the rotation reads as a smooth banking motion
+      // rather than snapping every frame.
+      const targetZ = Math.max(-0.6, Math.min(0.45, -this.bird.velocity.y * 0.06))
+      this.bird.mesh.rotation.z += (targetZ - this.bird.mesh.rotation.z) * 0.12
     }
 
     if (state !== 'playing' && state !== 'dying') {

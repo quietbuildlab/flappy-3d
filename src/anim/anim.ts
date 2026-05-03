@@ -1,5 +1,5 @@
 import { gsap } from 'gsap'
-import type { Object3D } from 'three'
+import type { Object3D, PerspectiveCamera } from 'three'
 import type { Bird } from '../entities/Bird'
 
 // Squash-and-stretch on flap (D-23 / ANIM-02)
@@ -39,6 +39,17 @@ export function scorePop(el: HTMLElement | null): void {
   // force reflow
   void el.offsetWidth
   el.classList.add('score-pop')
+}
+
+// Tiny FOV pulse on milestone scores (Diorama Pass v1.7).
+// Quick zoom-out then back, ~400ms, capped at +6° so it reads as "wow"
+// without inducing motion sickness. Caller must already have ruled out
+// reduced-motion. Idempotent if a pulse is already running (overwrite).
+export function pulseFOV(camera: PerspectiveCamera, baseFov = 50, peakFov = 56): void {
+  const update = () => camera.updateProjectionMatrix()
+  gsap.timeline({ overwrite: true })
+    .to(camera, { fov: peakFov, duration: 0.18, ease: 'power2.out', onUpdate: update })
+    .to(camera, { fov: baseFov, duration: 0.22, ease: 'power2.in', onUpdate: update })
 }
 
 // Wing flap animation on each jump (POLISH-02 / D-08)
