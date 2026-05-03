@@ -237,9 +237,12 @@ function App(props: AppProps) {
       storage: props.storage,
     }),
     h(HUD, {
-      active: value === 'playing' || value === 'dying',
+      // v1.9: HUD now also visible during 'respawning' so the player can
+      // see their remaining lives + bird position update during invincibility.
+      active: value === 'playing' || value === 'dying' || value === 'respawning',
       actor: props.actor,
       score: snap.context.score,
+      lives: snap.context.lives,
       onPause: () => props.actor.send({ type: 'PAUSE' }),
       mode: snap.context.mode,
       timerSystem: props.timerSystem,

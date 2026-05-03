@@ -173,6 +173,46 @@ body.palette-colorblind {
   user-select: none;
   line-height: 1;
 }
+/* v1.9 — Lives row (top-left of HUD, below the score). 5 emoji slots
+   shown — filled = ❤️, empty = 🖤. One-shot fx-gain / fx-lose classes
+   animate the affected slot for ~600ms. */
+.hud-hearts {
+  position: absolute;
+  top: 18px;
+  left: 16px;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+  user-select: none;
+  font-size: 1.4rem;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.hud-heart {
+  display: inline-block;
+  transition: opacity 200ms ease;
+}
+.hud-heart.empty { opacity: 0.32; }
+.hud-heart.fx-gain {
+  animation: heart-gain 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hud-heart.fx-lose {
+  animation: heart-lose 600ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+@keyframes heart-gain {
+  0%   { transform: scale(0.2) rotate(-15deg); opacity: 0; filter: drop-shadow(0 0 12px #66ff99); }
+  40%  { transform: scale(1.4) rotate(8deg);   opacity: 1; filter: drop-shadow(0 0 20px #66ff99); }
+  70%  { transform: scale(0.95);                filter: drop-shadow(0 0 8px #66ff99); }
+  100% { transform: scale(1);                   filter: none; }
+}
+@keyframes heart-lose {
+  0%   { transform: scale(1);                   opacity: 1; filter: drop-shadow(0 0 8px #ff5252); }
+  30%  { transform: scale(1.5) rotate(15deg);   opacity: 1; filter: drop-shadow(0 0 16px #ff5252); }
+  100% { transform: scale(0.4) translateY(20px); opacity: 0.32; filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-heart { animation: none; transition: none; }
+}
+
 .hud-pause-btn {
   position: absolute;
   top: 16px;

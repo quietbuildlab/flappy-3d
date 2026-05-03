@@ -307,6 +307,11 @@ if (!WebGL.isWebGL2Available()) {
       spawner.setRng(Math.random)
     }
 
+    // Reset bird material opacity in case a respawn-flash was mid-tween
+    if ((bird.mesh.material as { opacity?: number }).opacity !== undefined) {
+      ;(bird.mesh.material as { opacity?: number; transparent?: boolean }).opacity = 1
+    }
+
     if (import.meta.env.DEV) {
       const mem = renderer.info.memory
       console.log(
@@ -323,6 +328,59 @@ if (!WebGL.isWebGL2Available()) {
 
   let lastScore = 0
   let prevState: string | undefined
+
+  // v1.9 — Lives system. lifeLost: respawn bird at origin + flash invincibility
+  // window + fire RESPAWN_DONE so machine returns to playing. lifeGained:
+  // particle pop + sound on the bird (no state change).
+  actor.on('lifeLost', () => {
+    bird.position.set(0, 0, 0)
+    bird.velocity.set(0, 0, 0)
+    bird.prevPosition.set(0, 0, 0)
+    bird.mesh.rotation.z = 0
+    bird.syncMesh()
+    // Release any currently-on-screen obstacles so the bird doesn't respawn
+    // inside a pipe (CollisionSystem is gated on 'playing' so it'd ignore
+    // the overlap during respawn but instantly HIT once 'playing' resumes).
+    const toRelease: ObstaclePair[] = []
+    obstaclePool.forEachActive((pair) => {
+      pair.hide()
+      toRelease.push(pair)
+    })
+    for (const p of toRelease) obstaclePool.release(p)
+    if (!prefersReducedMotion(storage)) {
+      particles.burstTinted(
+        { x: bird.position.x, y: bird.position.y, z: bird.position.z },
+        0xff5252,  // red — life lost
+      )
+      // Bird "blinks" during invincibility window — toggle visibility 5x
+      const mat = bird.mesh.material as { transparent?: boolean; opacity?: number }
+      if (mat.opacity !== undefined) {
+        mat.transparent = true
+        let blinks = 0
+        const blink = () => {
+          if (mat.opacity === undefined) return
+          mat.opacity = mat.opacity > 0.5 ? 0.3 : 1.0
+          blinks++
+          if (blinks < 6) setTimeout(blink, 200)
+          else mat.opacity = 1.0  // settle visible
+        }
+        blink()
+      }
+    }
+    audio.playDeath()  // reuse death sfx for life-lost — distinct from gameOver
+    // Hand control back to the machine after the invincibility window
+    setTimeout(() => actor.send({ type: 'RESPAWN_DONE' }), 1400)
+  })
+
+  actor.on('lifeGained', () => {
+    if (!prefersReducedMotion(storage)) {
+      particles.burstTinted(
+        { x: bird.position.x, y: bird.position.y, z: bird.position.z },
+        0x66ff99,  // green — bonus life
+      )
+    }
+    audio.playScore()  // upbeat — reuse score sfx
+  })
 
   actor.subscribe((snapshot) => {
     const s = snapshot.value as string
