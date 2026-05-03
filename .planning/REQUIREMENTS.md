@@ -219,6 +219,100 @@ Direct user feedback after v1.4 ship: "make it easier to play" and "let players 
 
 ---
 
+## v1.6 — Cross-cutting Polish (informal, in response to direct user feedback)
+
+Six items the user flagged after v1.5 ship. Shipped as one combined feat commit
+(see `feat(v1.6): tackle all 6 feedback items`). Documented retroactively for
+traceability — no formal phase numbers.
+
+- [x] **POLISH-07**: Title screen redesigned — bird lifted to mascot
+  position, blur removed, foreground ground strip added (#1)
+- [x] **POLISH-08**: Bird beak + eyes added; pipes get rim caps (#2)
+- [x] **POLISH-09**: Render interpolation hook in GameLoop for smoother
+  motion on >60Hz displays (#3)
+- [x] **POLISH-10**: Settings modal — section grouping + emoji icons +
+  tooltip-based explanations (#4)
+- [x] **POLISH-11**: Bundle hygiene — font moved to src/assets, PWA glob
+  includes woff2 (#5)
+- [x] **POLISH-12**: Postprocessing quality tiers (Auto/Low/Medium/High)
+  replace binary mobile-vs-desktop gating (#6)
+
+---
+
+## v1.7 — Diorama Flight Pass (informal, single direction-shift feedback)
+
+Steered the project from "2D Flappy with 3D objects" toward a layered
+storybook diorama. Single combined commit (`feat(v1.7): Diorama Flight Pass`).
+
+- [x] **DIORAMA-01**: Bird character — rounded wings + tail feathers +
+  velocity-based pitch
+- [x] **DIORAMA-02**: Pipe diorama — bevel + rim band + subtle Y rotation
+- [x] **DIORAMA-03**: WorldLayers entity — foreground grass + midground
+  shrubs + parallax depth
+- [x] **DIORAMA-04**: Camera follow + FOV pulse on milestone
+- [x] **DIORAMA-05**: Title scene framing via flex-grow spacer
+- [x] **DIORAMA-06**: Depth-event balloon drifting behind play lane
+- [x] **DIORAMA-07**: Visual screenshot harness (Playwright × 2 viewports
+  × 2 states)
+
+---
+
+## v1.8 — Stickiness + Hygiene Pass (PLANNED 2026-05-03)
+
+After v1.7 the project is visually polished but has zero retention hook
+(every session is identical) and accumulated ops debt. Three phases (18,
+19, 20) — each independently executable.
+
+### Player progression (PROG)
+
+- [ ] **PROG-01**: New `unlocks: BirdShape[]` field in Settings v5 schema.
+  Initial `birdShape` choices restricted to `sphere`. Other shapes
+  (`cube`, `pyramid`) + emoji animals unlock at score thresholds:
+  `cube` = 5, `pyramid` = 15, `bird` = 30, `cat` = 50, `dog` = 75,
+  `frog` = 100, plus 2 new high-end animals (`unicorn` 🦄 = 150,
+  `penguin` 🐧 = 200). Default install gets `unlocks: ['sphere']`.
+  v4 → v5 migration grandfathers existing users with `unlocks: ALL_SHAPES`
+  (no surprise loss of access).
+- [ ] **PROG-02**: SettingsModal shape picker shows locked shapes greyed
+  out + tooltip "Unlock at score N". Tap-on-locked shows a brief flash.
+- [ ] **PROG-03**: On gameOver, if the score crosses a new threshold,
+  show a "🔓 Unlocked: 🐦" toast for ~3s in the GameOver screen (or
+  bottom of HUD if implementing on next-round-start). Subtle, motion-gated.
+
+### Ops hygiene (OPS)
+
+- [ ] **OPS-01**: Bump `actions/checkout`, `actions/setup-node`,
+  `actions/configure-pages`, `actions/upload-artifact` to versions that
+  support Node 22 (or set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` env)
+  in `.github/workflows/deploy.yml`. Silences Node 20 deprecation warning
+  before the Sep 16 2026 deadline.
+- [ ] **OPS-02**: Migrate `tests/visual-screenshots.spec.ts` from
+  informational PNGs to true visual regression via
+  `expect(...).toHaveScreenshot()`. Commit baseline images. CI fails on
+  pixel-diff above default threshold (will need explicit `--update-snapshots`
+  to refresh). Pin Playwright pixel-diff threshold to ~0.1% to handle
+  font + bloom variance.
+- [ ] **OPS-03**: Review Lighthouse pin (`@^11.7.1`) — either bump to v12
+  with the new audit categories that replaced PWA, or document the pin
+  reason permanently. Current pin is suspected-stale.
+
+### Audio polish (AUDIO)
+
+- [ ] **AUDIO-06**: Per-mode music tracks — endless gets the existing
+  chiptune; time-attack gets a faster track; daily gets a more
+  contemplative one. AudioManager learns to `setMusicTrack(modeKey)`
+  and crossfade across track switches. Falls back gracefully to current
+  single track if the new tracks aren't sourced yet.
+- [ ] **AUDIO-07**: Sub-bus mixing — separate master / music / sfx volumes
+  in AudioManager, exposed via Settings (3 sliders or 3 +/- toggles).
+  Existing single Sound + Music toggles are equivalent to setting volume
+  to 0 / restoring it. Persists in Settings v5.
+- [ ] **AUDIO-08**: Title-screen ambient layer (low-volume wind / chirp
+  loop) and depth-event balloon "fly-by" whoosh. Both motion-gated via
+  AudioManager mute when sound is off.
+
+---
+
 ## v2 / Deferred
 
 These are valuable but deliberately out of v1 scope. Add post-launch.
@@ -360,3 +454,8 @@ Populated by `gsd-roadmapper` on 2026-04-28. Every v1 REQ-ID maps to exactly one
 | POLISH-04 | Phase 16 | Pending |
 | POLISH-05 | Phase 17 | Pending |
 | POLISH-06 | Phase 17 | Pending |
+| POLISH-07..12 | (v1.6 informal) | Done |
+| DIORAMA-01..07 | (v1.7 informal) | Done |
+| PROG-01..03 | Phase 18 | Pending |
+| OPS-01..03 | Phase 19 | Pending |
+| AUDIO-06..08 | Phase 20 | Pending |

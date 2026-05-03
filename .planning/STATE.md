@@ -1,29 +1,29 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: — Approachability + Customization
-status: code_complete
-stopped_at: Completed Phase 17 (combined v1.5 increment)
-last_updated: "2026-05-02T05:10:00Z"
+milestone: v1.8
+milestone_name: — Stickiness + Hygiene Pass
+status: planned
+stopped_at: v1.7 Diorama Pass shipped; v1.8 ROADMAP drafted
+last_updated: "2026-05-03T05:00:00Z"
 progress:
-  total_phases: 17
+  total_phases: 20
   completed_phases: 17
-  total_plans: 33
+  total_plans: 36
   completed_plans: 32
-  percent: 100
+  percent: 85
 ---
 
 # Project State — Flappy 3D
 
-**Last updated:** 2026-05-02
-**Updated by:** gsd-executor (v1.5 combined commit)
+**Last updated:** 2026-05-03
+**Updated by:** v1.8 ROADMAP draft
 
 ---
 
 ## Project Reference
 
 **Core value:** The game must feel palpably more crafted than `guiguan/flappy-anna-3d` within 30 seconds of play — polished motion, real menus, real audio, 60fps on a mid-tier phone.
-**Current focus:** v1.5 Approachability + Customization CODE-COMPLETE — first user-feedback-driven milestone (no seed)
+**Current focus:** v1.8 Stickiness + Hygiene Pass — PLANNED. Phases 18-20 ready for `/gsd-plan-phase`.
 
 ---
 
@@ -31,13 +31,13 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Phase | 17 — Complete |
-| Phase name | Bird Customization |
-| Plans complete | v1.5 single combined increment (Phases 16+17 shipped together per user request) ✓ |
+| Phase | 18 — Planned, not started |
+| Phase name | Player Progression / unlocks |
+| Plans complete | None for v1.8 (17/17 done for prior milestones; v1.6 + v1.7 shipped informally) |
 | Plans in progress | None |
-| Status | v1.5 CODE-COMPLETE — difficulty presets + bird shape + image upload all shipped |
-| Phase goal | User-feedback features: easier default for new players, customizable bird (shape OR uploaded image) |
-| Blocked on | None |
+| Status | v1.8 ROADMAP drafted — 3 independent phases ready to execute |
+| Phase goal | Locked-by-default bird shapes + score-threshold unlocks + first-time toast |
+| Blocked on | User greenlight on which phase to start (or all 3 in parallel) |
 
 **Progress bar:**
 
@@ -59,6 +59,11 @@ Phase 14 [██████████] 100% ✓ (14-01 rim-light shader + win
 Phase 15 [██████████] 100% ✓ (15-01 cameraBob toggle + per-frame y-bob loop + roundStarted reset ✓)
 Phase 16 [██████████] 100% ✓ (16-01 difficulty presets Easy/Normal/Hard + schema v4 migration ✓)
 Phase 17 [██████████] 100% ✓ (17-01 bird shape picker + image upload + textured-plane swap ✓)
+v1.6     [██████████] 100% ✓ (POLISH-07..12 — 6 cross-cutting items, informal)
+v1.7     [██████████] 100% ✓ (DIORAMA-01..07 — diorama flight pass, informal)
+Phase 18 [          ] 0%   PLANNED — Player Progression (PROG-01..03)
+Phase 19 [          ] 0%   PLANNED — Ops Hygiene (OPS-01..03)
+Phase 20 [          ] 0%   PLANNED — Audio Polish (AUDIO-06..08)
 ```
 
 ---

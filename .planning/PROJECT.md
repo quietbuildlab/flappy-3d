@@ -56,6 +56,44 @@ Direct user feedback after v1.4 ship: "make it easier to play" and "let players 
 
 3 POLISH-* requirements coded (POLISH-04, 05, 06). StorageManager schema bumped to v4. Bundle: 200.77KB / 250KB. First user-feedback-driven milestone (no seed).
 
+### v1.6 Pass — Cross-cutting Polish (CODE-COMPLETE 2026-05-02, informal)
+
+Six items the user flagged after v1.5 ship — title screen redesign, 3D
+asset upgrade (bird beak/eyes + pipe caps), render interpolation for
+120Hz, settings UX (sections + icons + tooltips), bundle/loading polish,
+and postprocessing quality tiers. POLISH-07..12. Bundle: 202.12KB.
+
+### v1.7 Pass — Diorama Flight Pass (CODE-COMPLETE 2026-05-02, informal)
+
+Direction shift from "2D Flappy with 3D objects" toward layered storybook
+diorama: bird character (rounded wings + tail + velocity pitch), pipe
+diorama (bevel + rim + Y-rotation), WorldLayers (foreground grass +
+midground shrubs + parallax), camera follow + FOV pulse, title-scene
+framing via flex-grow spacer, depth-event balloon. DIORAMA-01..07.
+Bundle: 203.10KB.
+
+### v1.8 Milestone — Stickiness + Hygiene Pass (PLANNED 2026-05-03)
+
+Project is visually polished but every session looks identical (no
+retention hook) and ops debt has accumulated. Three independent phases:
+
+- Phase 18 — **Player progression / unlocks**: bird shapes initially
+  locked except `sphere`; unlock at score thresholds; locked items show
+  greyed in picker with "Unlock at N" tooltip; toast on first unlock.
+  Schema bump v4 → v5 with `unlocks: BirdShape[]`. New emoji animals
+  added to expand the unlock pool (🦄, 🐧). PROG-01..03.
+- Phase 19 — **Ops hygiene**: bump GH Actions to Node 22-compatible
+  versions (Sep 16 2026 deadline); migrate visual-screenshots.spec.ts
+  to true golden-image regression via `toHaveScreenshot()`; review
+  Lighthouse v11 pin. OPS-01..03.
+- Phase 20 — **Audio polish**: per-mode music tracks with crossfade;
+  master/music/sfx sub-bus mixing exposed in Settings; ambient layer on
+  title; balloon fly-by whoosh. AUDIO-06..08.
+
+9 requirements total (3 PROG + 3 OPS + 3 AUDIO). Schema bump v4 → v5
+(unlocks + sub-bus volumes). Estimated bundle delta: +5-8KB. Each
+phase independently shippable — no inter-phase dependencies.
+
 ### Active
 
 - [ ] Endless flappy gameplay loop (input → gravity-flap → AABB collision → score → death)

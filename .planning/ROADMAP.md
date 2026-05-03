@@ -37,6 +37,22 @@
 - [x] **Phase 14: Bird Polish** — rim lighting on toon material + animated wing meshes (rotation tween on flap) ✓ (2026-05-02; 199.25KB gzip)
 - [x] **Phase 15: Camera Depth (opt-in)** — subtle camera y-bob following bird velocity; double-gated behind new Settings toggle (default OFF) + `prefersReducedMotion` ✓
 
+### v1.5 — Approachability + Customization
+
+- [x] **Phase 16: Difficulty Presets** — Easy/Normal/Hard picker; multipliers on gap, scroll, spawn, gravity ✓
+- [x] **Phase 17: Bird Customization** — shape picker (sphere/cube/pyramid + 4 emoji animals) + image upload ✓
+
+### v1.6 + v1.7 — Cross-cutting passes (informal, no phase numbers)
+
+- [x] **v1.6 Pass**: 6 cross-cutting items (title screen, 3D assets, render interp, settings UX, bundle, quality tiers) — POLISH-07..12 ✓
+- [x] **v1.7 Pass**: Diorama Flight Pass — 7 items (bird character, pipe diorama, world layers, camera follow, title framing, depth events, screenshot harness) — DIORAMA-01..07 ✓
+
+### v1.8 — Stickiness + Hygiene Pass (PLANNED)
+
+- [ ] **Phase 18: Player Progression** — locked-by-default bird shapes + score-threshold unlocks + first-time toast; schema bump v4 → v5 (PROG-01..03)
+- [ ] **Phase 19: Ops Hygiene** — GH Actions Node bump + Playwright golden-image regression + Lighthouse pin review (OPS-01..03)
+- [ ] **Phase 20: Audio Polish** — per-mode music + sub-bus mixing + ambient layer + balloon whoosh (AUDIO-06..08)
+
 ---
 
 ## Phase Details
@@ -309,6 +325,46 @@ Plans:
 Plans:
 - [x] 15-01-camera-bob-PLAN.md — cameraBob setting in StorageManager v3 + Settings toggle row + per-frame loop step (lerp 0.08, factor 0.05) + roundStarted reset ✓
 **UI hint**: yes (new Settings toggle row)
+
+---
+
+## v1.8 Phase Details (PLANNED)
+
+### Phase 18: Player Progression
+**Goal**: After Phase 18, the bird shape picker shows locked + unlocked states. Fresh installs start with only `sphere`. Hitting score thresholds unlocks new shapes / animals one at a time. Existing v4 saves grandfather-unlock everything (no surprise loss of access).
+**Depends on**: Phase 17 (bird shape picker exists)
+**Requirements**: PROG-01, PROG-02, PROG-03
+**Success Criteria**:
+  1. SettingsV5 schema adds `unlocks: BirdShape[]`. Default fresh = `['sphere']`. v4 → v5 migration sets `unlocks: ALL_SHAPES` for existing users.
+  2. SettingsModal shape picker renders locked items with `.locked` class (greyed + non-clickable). Tooltip shows "Unlock at score N".
+  3. On gameOver, if score crosses any threshold not already in `unlocks`, push to `unlocks` and show a "🔓 Unlocked: 🐦" toast for ~3s. Toast is motion-gated (skipped under reduced-motion).
+  4. New emoji animals 🦄 (unicorn, threshold 150) + 🐧 (penguin, threshold 200) added to BirdShape type — pure additions, don't break existing renders.
+  5. No regression: existing image upload still overrides shape; emoji shapes still render plane-textures.
+**Plans**: TBD
+**UI hint**: yes (Settings shape picker + new unlock toast)
+
+### Phase 19: Ops Hygiene
+**Goal**: After Phase 19, CI no longer warns about Node 20 deprecation, the visual screenshot harness catches pixel regressions automatically, and the Lighthouse pin is either bumped or annotated permanently.
+**Depends on**: nothing (CI / test only — orthogonal to game code)
+**Requirements**: OPS-01, OPS-02, OPS-03
+**Success Criteria**:
+  1. `.github/workflows/deploy.yml` actions bumped to versions that support Node 22+ (or `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` env). Deploy run shows zero Node 20 deprecation warnings.
+  2. `tests/visual-screenshots.spec.ts` migrated from informational `page.screenshot()` to `expect(page).toHaveScreenshot()`. Baseline images committed to `tests/visual-screenshots.spec.ts-snapshots/`. Pixel-diff threshold pinned ~0.1%. CI workflow runs the spec and fails on mismatch.
+  3. Lighthouse pin (`lighthouse@^11.7.1`) reviewed: either bump to v12 + new audit category mapping, or document the pin reason permanently in deploy.yml comment.
+**Plans**: TBD
+**UI hint**: no (CI / tests only)
+
+### Phase 20: Audio Polish
+**Goal**: After Phase 20, each game mode has its own music track that crossfades on switch, master/music/sfx volumes are independently mixable, and the title screen has a subtle ambient layer (wind / chirp loop). Depth-event balloon gets a quiet fly-by whoosh.
+**Depends on**: Phase 3 (AudioManager + Howler), Phase 9 (mode infrastructure), Phase 17/Diorama (balloon)
+**Requirements**: AUDIO-06, AUDIO-07, AUDIO-08
+**Success Criteria**:
+  1. AudioManager learns `setMusicTrack(mode: GameMode)` that crossfades the music between mode tracks. Falls back to current single track if mode-specific source isn't sourced (CC0 audio sourcing optional).
+  2. AudioManager exposes 3 sub-bus volumes (master / music / sfx) — each persisted in SettingsV5 (or v6 if v5 already taken by Phase 18). Settings UI shows 3 sliders or compact +/- toggles, replacing the existing Sound + Music binary toggles (or supplementing them).
+  3. Title screen plays a low-volume ambient loop (wind or distant chirp). Pauses with the rest of the audio context on tab-blur.
+  4. Depth-event balloon (`WorldLayers.balloon`) plays a single low-volume whoosh on each fly-through. Sfx-bus gated.
+**Plans**: TBD
+**UI hint**: yes (Settings volume controls)
 
 ---
 
