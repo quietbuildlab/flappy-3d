@@ -39,6 +39,15 @@ import { prefersReducedMotion } from './a11y/motion'
 import { PIPE_WIDTH, PIPE_DEPTH, PIPE_COLOR, POOL_SIZE } from './constants'
 import { mulberry32, dailySeed } from './utils/rng'
 import { difficultyFrom } from './systems/Difficulty'
+import { ALL_BIRD_SHAPES, SHAPE_UNLOCK_THRESHOLDS } from './constants'
+
+// Pretty labels for unlock toasts. Geometric shapes use their name;
+// emoji animals show the emoji glyph.
+const EMOJI_FOR_SHAPE_FOR_TOAST: Record<string, string> = {
+  sphere: 'Sphere', cube: 'Cube', pyramid: 'Pyramid',
+  bird: '🐦', cat: '🐱', dog: '🐶', frog: '🐸',
+  unicorn: '🦄', penguin: '🐧',
+}
 import './style.css'
 import './ui/styles.css'
 
@@ -100,6 +109,13 @@ if (!WebGL.isWebGL2Available()) {
   // Phase 17 v1.5: apply stored bird shape + image at startup
   bird.setShape(storedSettings.birdShape)
   bird.setImage(storedSettings.birdImage)
+
+  // Phase 20 v1.8: apply stored sub-bus volumes + initial mode music track
+  audio.applyVolumes(storedSettings.volumeMaster, storedSettings.volumeMusic, storedSettings.volumeSfx)
+  audio.setMusicTrack(storedSettings.lastMode)
+
+  // Phase 20 v1.8 AUDIO-08: balloon fly-by whoosh
+  worldLayers.onBalloonAppear = () => audio.playWhoosh()
 
   const ui = new UIBridge(
     actor,
@@ -329,6 +345,26 @@ if (!WebGL.isWebGL2Available()) {
       audio.setMusicVolume(0.2)
     } else if (s === 'gameOver') {
       audio.setMusicPlaying(false)
+    }
+
+    // Phase 18 PROG-03: detect newly-crossed unlock thresholds on game-over.
+    // Show staggered toasts (350ms apart). Persist via storage.unlockShape.
+    if (s === 'gameOver' && prevState !== 'gameOver') {
+      const score = snapshot.context.score
+      const currentUnlocks = storage.getSettings().unlocks
+      const newlyUnlocked: string[] = []
+      for (const shape of ALL_BIRD_SHAPES) {
+        const threshold = SHAPE_UNLOCK_THRESHOLDS[shape] ?? Infinity
+        if (score >= threshold && !currentUnlocks.includes(shape)) {
+          if (storage.unlockShape(shape)) newlyUnlocked.push(shape)
+        }
+      }
+      if (newlyUnlocked.length > 0 && !prefersReducedMotion(storage)) {
+        newlyUnlocked.forEach((shape, i) => {
+          const label = EMOJI_FOR_SHAPE_FOR_TOAST[shape] ?? shape
+          setTimeout(() => ui.showUnlockToast(label), i * 350)
+        })
+      }
     }
 
     // Juice on dying transition (screen shake + particle burst) — gated behind reduced motion

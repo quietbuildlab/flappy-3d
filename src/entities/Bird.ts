@@ -27,10 +27,12 @@ const GHOST_FADE_SPEED = 1 / 0.18 // opacity → 0 in 180ms
 
 const GEOMETRIC_SHAPES: ReadonlySet<BirdShape> = new Set(['sphere', 'cube', 'pyramid'])
 const EMOJI_FOR_SHAPE: Record<string, string> = {
-  bird: '🐦',
-  cat:  '🐱',
-  dog:  '🐶',
-  frog: '🐸',
+  bird:    '🐦',
+  cat:     '🐱',
+  dog:     '🐶',
+  frog:    '🐸',
+  unicorn: '🦄',
+  penguin: '🐧',
 }
 
 export class Bird {

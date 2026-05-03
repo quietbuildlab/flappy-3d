@@ -31,6 +31,9 @@ export class WorldLayers {
   private midground: Group
   private balloon: Group       // depth-event prop (drifts behind play lane)
   private balloonState: { active: boolean; cooldown: number } = { active: false, cooldown: 4 }
+  /** Called once when the balloon enters the visible band (Phase 20 AUDIO-08).
+   * Caller can hook in audio.playWhoosh() etc. No-op by default. */
+  onBalloonAppear: () => void = () => {}
 
   constructor(scene: Scene) {
     this.foreground = this.createForeground()
@@ -66,6 +69,7 @@ export class WorldLayers {
         this.balloonState.active = true
         this.balloon.visible = true
         this.balloon.position.set(10, 0.5 + Math.random() * 2.5, -3.5)
+        this.onBalloonAppear()
       }
     }
   }

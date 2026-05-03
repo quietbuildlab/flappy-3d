@@ -55,6 +55,25 @@ export const DIFFICULTY_MULTIPLIERS: Record<DifficultyPreset, DifficultyMultipli
   hard:   { gap: 0.85, scroll: 1.10, spawn: 0.90, gravity: 1.10 },
 }
 
+// Phase 18 — Score-threshold unlocks for bird shapes (PROG-01).
+// `sphere` is unlocked at install (default starting shape). All others
+// require crossing the listed best-score threshold. Existing v4 saves
+// are grandfather-unlocked at migration time so no surprise loss.
+export const SHAPE_UNLOCK_THRESHOLDS: Record<string, number> = {
+  sphere:  0,
+  cube:    5,
+  pyramid: 15,
+  bird:    30,
+  cat:     50,
+  dog:     75,
+  frog:    100,
+  unicorn: 150,
+  penguin: 200,
+}
+/** All shape ids in unlock order. Source-of-truth for picker iteration
+ * and v4→v5 grandfather migration. */
+export const ALL_BIRD_SHAPES = ['sphere','cube','pyramid','bird','cat','dog','frog','unicorn','penguin'] as const
+
 // Phase 7 — pipe color cycling (BEAUTY-08, D-14, D-18)
 // 4 toon colors cycling per ObstaclePair spawn. PIPE_COLOR_CYCLE[0] === PIPE_COLOR (green).
 // All colors chosen for adequate luminance contrast against sky-blue background.

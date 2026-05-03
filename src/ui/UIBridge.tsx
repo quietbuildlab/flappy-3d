@@ -137,6 +137,23 @@ export class UIBridge {
     setTimeout(() => flash.classList.remove('active'), 200)
   }
 
+  /** Phase 18 PROG-03: show a "🔓 Unlocked: X" toast for ~3s. Caller is
+   * responsible for state-gating (typically called once on game over when
+   * the score crossed a threshold not previously in unlocks). */
+  showUnlockToast(label: string): void {
+    if (!this.mountEl) return
+    const toast = document.createElement('div')
+    toast.className = 'unlock-toast'
+    toast.textContent = `🔓 Unlocked: ${label}`
+    this.mountEl.appendChild(toast)
+    // Pop the .active class on the next frame so the CSS transition runs
+    requestAnimationFrame(() => toast.classList.add('active'))
+    setTimeout(() => {
+      toast.classList.remove('active')
+      setTimeout(() => toast.remove(), 250)
+    }, 3000)
+  }
+
   dispose(): void {
     if (this.mountEl) render(null, this.mountEl)
   }
@@ -189,6 +206,8 @@ function App(props: AppProps) {
     props.storage.setLastMode(newMode)
     setMode(newMode)
     setLeaderboard(props.storage.getLeaderboard(newMode))
+    // Phase 20 AUDIO-06: notify audio of new track preference (no-op fallback)
+    props.audio.setMusicTrack(newMode)
   }
 
   function handleInstall() {

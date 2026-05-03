@@ -1,4 +1,5 @@
 import type { DifficultyPreset } from '../constants'
+import { ALL_BIRD_SHAPES } from '../constants'
 import type { QualityTier } from '../render/createComposer'
 
 const STORAGE_KEY = 'flappy-3d:v1'
@@ -6,7 +7,7 @@ const STORAGE_KEY = 'flappy-3d:v1'
 // GameMode is duplicated here so StorageManager has zero dependency on src/machine/.
 // TypeScript structural typing makes this compatible with gameMachine.ts's GameMode.
 export type GameMode = 'endless' | 'timeAttack' | 'daily'
-export type BirdShape = 'sphere' | 'cube' | 'pyramid' | 'bird' | 'cat' | 'dog' | 'frog'
+export type BirdShape = 'sphere' | 'cube' | 'pyramid' | 'bird' | 'cat' | 'dog' | 'frog' | 'unicorn' | 'penguin'
 
 export interface SettingsV2 {
   sound: boolean
@@ -26,6 +27,14 @@ export interface SettingsV4 extends SettingsV3 {
   birdShape: BirdShape           // Phase 17 v1.5; default 'sphere'
   birdImage: string | null       // Phase 17 v1.5; data URL (PNG, ≤256×256), null = use shape
   quality: QualityTier           // Phase 18 v1.6; default 'auto' (auto-tier by device)
+}
+
+export interface SettingsV5 extends SettingsV4 {
+  unlocks: BirdShape[]           // Phase 18 v1.8 (PROG-01); default ['sphere'] for fresh installs.
+                                  // v4 → v5 migration grandfathers existing users to ALL_BIRD_SHAPES.
+  volumeMaster: number           // Phase 20 v1.8 (AUDIO-07); 0..1 master gain
+  volumeMusic: number            // Phase 20 v1.8 (AUDIO-07); 0..1 music sub-bus gain
+  volumeSfx: number              // Phase 20 v1.8 (AUDIO-07); 0..1 sfx sub-bus gain
 }
 
 export interface LeaderboardEntry {
@@ -53,6 +62,14 @@ const DEFAULT_SETTINGS_V4: SettingsV4 = {
   birdShape: 'sphere',
   birdImage: null,
   quality: 'auto',     // resolves to low/medium/high based on device capability
+}
+
+const DEFAULT_SETTINGS_V5: SettingsV5 = {
+  ...DEFAULT_SETTINGS_V4,
+  unlocks: ['sphere'],  // fresh install — only sphere unlocked at start (v1.8)
+  volumeMaster: 0.7,    // master gain — applied via Howler.volume() globally
+  volumeMusic: 0.4,     // music sub-bus — applied to music Howl on top of master
+  volumeSfx: 0.6,       // sfx sub-bus — applied to flap/score/death/whoosh on top of master
 }
 
 interface SaveV1 {
@@ -84,18 +101,25 @@ interface SaveV4 extends Omit<SaveV3, 'schemaVersion' | 'settings'> {
   settings: SettingsV4
 }
 
+interface SaveV5 extends Omit<SaveV4, 'schemaVersion' | 'settings'> {
+  schemaVersion: 5
+  settings: SettingsV5
+}
+
 export class StorageManager {
-  private load(): SaveV4 {
+  private load(): SaveV5 {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw === null) return this.defaults()
-      const parsed = JSON.parse(raw) as SaveV1 | SaveV2 | SaveV3 | SaveV4
+      const parsed = JSON.parse(raw) as SaveV1 | SaveV2 | SaveV3 | SaveV4 | SaveV5
+      // Existing users (any prior schema) get ALL_BIRD_SHAPES grandfathered —
+      // no surprise loss of access to shapes they could already pick.
+      const grandfatheredUnlocks: BirdShape[] = [...ALL_BIRD_SHAPES]
       if (parsed.schemaVersion === 1) {
-        // v1 → v4: no leaderboard in v1; existing user → 'normal' difficulty
         return {
-          schemaVersion: 4,
+          schemaVersion: 5,
           bestScore: parsed.bestScore,
-          settings: { ...DEFAULT_SETTINGS_V4, difficulty: 'normal' },
+          settings: { ...DEFAULT_SETTINGS_V5, difficulty: 'normal', unlocks: grandfatheredUnlocks },
           leaderboardByMode: {
             endless: parsed.bestScore > 0 ? [{ score: parsed.bestScore, ts: Date.now() }] : [],
             timeAttack: [],
@@ -105,33 +129,40 @@ export class StorageManager {
         }
       }
       if (parsed.schemaVersion === 2) {
-        // v2 → v4: existing user → 'normal' difficulty
         return {
-          schemaVersion: 4,
+          schemaVersion: 5,
           bestScore: parsed.bestScore,
-          settings: { ...DEFAULT_SETTINGS_V4, ...parsed.settings, difficulty: 'normal' },
+          settings: { ...DEFAULT_SETTINGS_V5, ...parsed.settings, difficulty: 'normal', unlocks: grandfatheredUnlocks },
           leaderboardByMode: { endless: parsed.leaderboard, timeAttack: [], daily: [] },
           dailyAttempts: {},
         }
       }
       if (parsed.schemaVersion === 3) {
-        // v3 → v4: existing user → 'normal' difficulty (don't surprise-buff to easy)
         return {
-          schemaVersion: 4,
+          schemaVersion: 5,
           bestScore: parsed.bestScore,
-          settings: { ...DEFAULT_SETTINGS_V4, ...parsed.settings, difficulty: 'normal' },
+          settings: { ...DEFAULT_SETTINGS_V5, ...parsed.settings, difficulty: 'normal', unlocks: grandfatheredUnlocks },
           leaderboardByMode: parsed.leaderboardByMode,
           dailyAttempts: parsed.dailyAttempts,
         }
       }
-      if (parsed.schemaVersion === 4) return parsed as SaveV4
+      if (parsed.schemaVersion === 4) {
+        return {
+          schemaVersion: 5,
+          bestScore: parsed.bestScore,
+          settings: { ...DEFAULT_SETTINGS_V5, ...parsed.settings, unlocks: grandfatheredUnlocks },
+          leaderboardByMode: parsed.leaderboardByMode,
+          dailyAttempts: parsed.dailyAttempts,
+        }
+      }
+      if (parsed.schemaVersion === 5) return parsed as SaveV5
       return this.defaults()
     } catch {
       return this.defaults()
     }
   }
 
-  private save(data: SaveV4): void {
+  private save(data: SaveV5): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch {
@@ -139,11 +170,11 @@ export class StorageManager {
     }
   }
 
-  private defaults(): SaveV4 {
+  private defaults(): SaveV5 {
     return {
-      schemaVersion: 4,
+      schemaVersion: 5,
       bestScore: 0,
-      settings: { ...DEFAULT_SETTINGS_V4 },
+      settings: { ...DEFAULT_SETTINGS_V5 },
       leaderboardByMode: { endless: [], timeAttack: [], daily: [] },
       dailyAttempts: {},
     }
@@ -209,14 +240,24 @@ export class StorageManager {
     this.save(data)
   }
 
-  getSettings(): SettingsV4 {
-    return { ...DEFAULT_SETTINGS_V4, ...this.load().settings }
+  getSettings(): SettingsV5 {
+    return { ...DEFAULT_SETTINGS_V5, ...this.load().settings }
   }
 
-  setSettings(partial: Partial<SettingsV4>): void {
+  setSettings(partial: Partial<SettingsV5>): void {
     const data = this.load()
     data.settings = { ...data.settings, ...partial }
     this.save(data)
+  }
+
+  /** Phase 18 PROG-01: append a freshly-unlocked shape to the unlocks list
+   * (idempotent — no-op if already unlocked). Returns true on first unlock. */
+  unlockShape(shape: BirdShape): boolean {
+    const data = this.load()
+    if (data.settings.unlocks.includes(shape)) return false
+    data.settings = { ...data.settings, unlocks: [...data.settings.unlocks, shape] }
+    this.save(data)
+    return true
   }
 
   getLastMode(): GameMode {

@@ -399,6 +399,47 @@ dialog.settings-modal::backdrop {
 /* Bird-shape picker has 7 options including emoji animals — wrap so each
    row has 3-4 evenly-sized buttons rather than a single 7-wide line. */
 .settings-picker-shapes .mode-btn { flex: 1 1 calc(33% - 6px); padding: 8px 4px; font-size: 1.1rem; }
+/* Phase 18 PROG-02: locked shape — visibly disabled but still showing the
+   emoji/name so the user can see what's coming. Pointer-events still on
+   so the title-attribute tooltip surfaces on hover; click is no-op. */
+.settings-picker-shapes .mode-btn.locked {
+  opacity: 0.32;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
+  background: rgba(255,255,255,0.08);
+}
+.settings-picker-shapes .mode-btn.locked:hover {
+  opacity: 0.42;
+  background: rgba(255,255,255,0.12);
+}
+
+/* Phase 18 PROG-03 — first-unlock toast (3s pop-in/out at top center) */
+.unlock-toast {
+  position: fixed;
+  top: 12vh;
+  left: 50%;
+  transform: translate(-50%, -20px);
+  background: rgba(20, 30, 50, 0.92);
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  color: #ffd166;
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-family: 'Press Start 2P', system-ui, sans-serif;
+  font-size: 0.85rem;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.unlock-toast.active {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .unlock-toast { transition: none; }
+}
 .settings-imagerow .settings-imageactions {
   display: flex;
   gap: 8px;
@@ -422,6 +463,28 @@ dialog.settings-modal::backdrop {
   margin-right: 10px;
 }
 .settings-clearimage { padding: 8px 14px; min-width: 0; min-height: 0; }
+
+/* Phase 20 AUDIO-07 — sub-bus volume slider rows */
+.settings-volumerow {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+.settings-volumerow .settings-row-label { flex: 0 0 auto; min-width: 6.5rem; font-size: 0.85rem; }
+.settings-volume-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--btn-top, #5b76d4);
+  height: 4px;
+}
+.settings-volume-value {
+  flex: 0 0 auto;
+  min-width: 2.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.85);
+}
 
 /* ── Button row util ── */
 .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }

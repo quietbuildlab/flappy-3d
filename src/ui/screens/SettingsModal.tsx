@@ -1,9 +1,10 @@
 import { h } from 'preact'
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
-import type { StorageManager, SettingsV4, BirdShape } from '../../storage/StorageManager'
+import type { StorageManager, SettingsV5, BirdShape } from '../../storage/StorageManager'
 import type { AudioManager } from '../../audio/AudioManager'
 import type { DifficultyPreset } from '../../constants'
+import { SHAPE_UNLOCK_THRESHOLDS } from '../../constants'
 import type { QualityTier } from '../../render/createComposer'
 import { Button } from '../components/Button'
 import { Toggle } from '../components/Toggle'
@@ -32,7 +33,7 @@ function Section({ title, children }: { title: string; children?: ComponentChild
 export function SettingsModal({
   storage, audio, onClose, onPaletteChange, onShapeChange, onImageChange,
 }: Props) {
-  const [settings, setSettings] = useState<SettingsV4>(() => storage.getSettings())
+  const [settings, setSettings] = useState<SettingsV5>(() => storage.getSettings())
   const [imageError, setImageError] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -52,7 +53,7 @@ export function SettingsModal({
     }
   }, [])
 
-  function update(partial: Partial<SettingsV4>) {
+  function update(partial: Partial<SettingsV5>) {
     const next = { ...settings, ...partial }
     setSettings(next)
     storage.setSettings(partial)
@@ -63,6 +64,10 @@ export function SettingsModal({
     if (partial.palette !== undefined) onPaletteChange(partial.palette)
     if (partial.birdShape !== undefined) onShapeChange(partial.birdShape)
     if (partial.birdImage !== undefined) onImageChange(partial.birdImage)
+    // Phase 20 v1.8: live-apply sub-bus volumes
+    if (partial.volumeMaster !== undefined) audio.setVolumeMaster(partial.volumeMaster)
+    if (partial.volumeMusic !== undefined) audio.setVolumeMusic(partial.volumeMusic)
+    if (partial.volumeSfx !== undefined) audio.setVolumeSfx(partial.volumeSfx)
   }
 
   const reduceMotionOn =
@@ -114,6 +119,23 @@ export function SettingsModal({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // Phase 20 AUDIO-07: render a labelled 0..1 slider row for a sub-bus volume.
+  const renderVolumeRow = (label: string, value: number, onChange: (v: number) => void) =>
+    h('div', { className: 'settings-row settings-volumerow' },
+      h('span', { className: 'settings-row-label' }, label),
+      h('input', {
+        type: 'range',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        value: value,
+        'aria-label': label,
+        onInput: (e: Event) => onChange(parseFloat((e.target as HTMLInputElement).value)),
+        className: 'settings-volume-slider',
+      }),
+      h('span', { className: 'settings-volume-value' }, `${Math.round(value * 100)}%`),
+    )
+
   const pickerButton = <T extends string>(
     current: T, id: T, label: string, onPick: (id: T) => void, ariaLabel?: string,
   ) =>
@@ -152,6 +174,10 @@ export function SettingsModal({
           onChange: (v) => update({ music: v }),
           tip: 'Background music. Plays softer on the title screen.',
         }),
+        // Phase 20 AUDIO-07: 3 sub-bus volume sliders
+        renderVolumeRow('🔊 Master', settings.volumeMaster, (v) => update({ volumeMaster: v })),
+        renderVolumeRow('🎵 Music vol', settings.volumeMusic, (v) => update({ volumeMusic: v })),
+        renderVolumeRow('💥 SFX vol', settings.volumeSfx, (v) => update({ volumeSfx: v })),
       ),
 
       // ── Accessibility ──────────────────────────────────
@@ -229,10 +255,26 @@ export function SettingsModal({
                 { id: 'cat',     label: '🐱'      },
                 { id: 'dog',     label: '🐶'      },
                 { id: 'frog',    label: '🐸'      },
+                { id: 'unicorn', label: '🦄'      },
+                { id: 'penguin', label: '🐧'      },
               ] as const
-            ).map(({ id, label }) =>
-              pickerButton(settings.birdShape, id as BirdShape, label, (i) => update({ birdShape: i })),
-            ),
+            ).map(({ id, label }) => {
+              const unlocked = settings.unlocks.includes(id as BirdShape)
+              const threshold = SHAPE_UNLOCK_THRESHOLDS[id] ?? 0
+              if (unlocked) {
+                return pickerButton(settings.birdShape, id as BirdShape, label, (i) => update({ birdShape: i }))
+              }
+              // Locked button — greyed, non-clickable, tooltip explains threshold.
+              return h('button', {
+                key: id,
+                type: 'button',
+                className: 'mode-btn locked',
+                'aria-disabled': true,
+                'aria-label': `${id} — locked, unlock at score ${threshold}`,
+                title: `🔒 Unlock at score ${threshold}`,
+                onClick: (e: MouseEvent) => e.preventDefault(),
+              }, label)
+            }),
           ),
         ) : null,
         h('div', {

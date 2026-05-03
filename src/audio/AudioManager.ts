@@ -1,5 +1,7 @@
 import { Howl, Howler } from 'howler'
 
+const clamp01 = (v: number): number => Math.max(0, Math.min(1, v))
+
 // Tiny WebAudio synth fallback used when MP3 files are placeholder/unavailable (D-09)
 function synthBurst(
   type: OscillatorType,
@@ -39,6 +41,12 @@ export class AudioManager {
   private musicMuted = false
   private unlocked = false
   private unlockHandler: ((e: PointerEvent) => void) | null = null
+
+  // Phase 20 AUDIO-07: sub-bus mixing. master applies via Howler.volume()
+  // (global), music/sfx are multiplied per-howl on top.
+  private master = 0.7
+  private musicGain = 0.4
+  private sfxGain = 0.6
 
   constructor() {
     // All Howl instances created ONCE here (AUD-05) — never recreated on restart
@@ -141,6 +149,44 @@ export class AudioManager {
     } else if (this.musicPlaying && this.unlocked) {
       this.music.play()
     }
+  }
+
+  // Phase 20 AUDIO-07: sub-bus volume controls. master goes through
+  // Howler global; music/sfx are multiplied per-instance.
+  setVolumeMaster(v: number): void {
+    this.master = clamp01(v)
+    Howler.volume(this.master)
+  }
+  setVolumeMusic(v: number): void {
+    this.musicGain = clamp01(v)
+    this.music.volume(this.musicGain)
+  }
+  setVolumeSfx(v: number): void {
+    this.sfxGain = clamp01(v)
+    this.flap.volume(this.sfxGain)
+    this.score.volume(this.sfxGain)
+    this.death.volume(this.sfxGain)
+  }
+  /** Apply all 3 sub-bus volumes from a settings snapshot in one call. */
+  applyVolumes(master: number, music: number, sfx: number): void {
+    this.setVolumeMaster(master)
+    this.setVolumeMusic(music)
+    this.setVolumeSfx(sfx)
+  }
+
+  // Phase 20 AUDIO-06: per-mode music track stub. Source files don't yet
+  // exist; until they're sourced this is a no-op fallback that keeps the
+  // existing `music` Howl playing. API is in place so future drop-in
+  // works without further wiring.
+  setMusicTrack(_modeKey: 'endless' | 'timeAttack' | 'daily'): void {
+    // no-op fallback — future: crossfade between mode-specific Howls
+  }
+
+  // Phase 20 AUDIO-08: balloon fly-by whoosh — synth fallback (low filtered
+  // noise burst). Sfx-bus gated. Called by WorldLayers when balloon spawns.
+  playWhoosh(): void {
+    if (this.sfxMuted) return
+    synthBurst('sine', 220, 320)
   }
 
   fadeMusicOut(durationMs: number): void {
