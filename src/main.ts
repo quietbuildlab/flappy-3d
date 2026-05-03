@@ -192,10 +192,11 @@ if (!WebGL.isWebGL2Available()) {
   // Title-screen mascot positioning: lift bird above viewport center so it
   // doesn't sit behind the mode picker / leaderboard, and pull forward in z
   // so it reads as the foreground character. Resets to (0,0,0) on roundStarted.
-  // Title-screen mascot framing — bird sits a bit above center, low enough
-  // that the floating logo (top of viewport, CSS) and the mode picker /
-  // leaderboard (bottom, CSS) clearly bracket it as the focal element.
-  const TITLE_MASCOT_Y = 0.7
+  // Title-screen mascot framing — bird sits clearly above the mode picker
+  // (which lives near 25-30vh from top in CSS) but below the floating logo
+  // (~12vh). World y=1.6 maps to ~22vh from top at 50° FOV / 8u distance,
+  // so the bird sits in the gap between logo and mode picker.
+  const TITLE_MASCOT_Y = 1.6
   const TITLE_MASCOT_Z = 0.5
   loop.add({
     step: (dt: number) => {
