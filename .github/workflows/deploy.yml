@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy (GitHub Pages + Cloudflare Pages)
 
 on:
   push:
@@ -15,6 +15,13 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Phase 19 OPS-01: opt all JS-based actions onto Node 24 ahead of the
+# Sep 16 2026 deadline that removes Node 20 from runners. Avoids per-action
+# version bumps that may not yet be released across the entire dependency
+# tree (actions/checkout, setup-node, configure-pages, etc.).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,7 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -80,11 +87,20 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Lighthouse CLI
-        # Pinned to v11: Lighthouse v12 removed the dedicated `pwa` category
-        # (PWA audits redistributed). PWA-05 references the category score, so v11.
+        # Phase 19 OPS-03: pin reviewed 2026-05-03. Decision: KEEP v11 pin.
+        # Lighthouse v12+ removed the consolidated `pwa` category — the
+        # underlying audits (installable, splashscreen, themed-omnibox,
+        # maskable-icon, etc.) still exist but are scattered across other
+        # categories with no aggregate score. To migrate we'd need to:
+        #   (a) call individual audits via --only-audits + threshold each,
+        #   (b) reconstruct an aggregate PWA score from those, or
+        #   (c) drop the PWA gate entirely.
+        # All three add real complexity for ~zero gameplay value. v11.7.1
+        # is in maintenance support and runs cleanly on Node 22. Revisit
+        # only if v11 is removed from npm or stops resolving.
         run: npm install -g lighthouse@^11.7.1
 
       - name: Run Lighthouse PWA audit
@@ -124,3 +140,37 @@ jobs:
         with:
           name: lighthouse-report
           path: lighthouse-pwa.json
+
+  # Cloudflare Pages — runs in parallel with the GH Pages chain.
+  # Builds with VITE_BASE=/ so the bundle is served from the CF Pages root
+  # (https://flappy-3d.pages.dev) rather than the /flappy-3d/ subpath.
+  # Requires repo secrets:
+  #   - CLOUDFLARE_API_TOKEN  (Pages:Edit token from CF dashboard)
+  #   - CLOUDFLARE_ACCOUNT_ID (visible in CF dashboard right sidebar)
+  # See docs/DEPLOY-CLOUDFLARE.md for one-time setup.
+  deploy-cf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build for Cloudflare (root base)
+        env:
+          VITE_BASE: '/'
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=flappy-3d --branch=main
