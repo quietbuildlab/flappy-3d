@@ -1,59 +1,61 @@
-import { PlaneGeometry, MeshBasicMaterial, Mesh, TextureLoader, Scene } from 'three'
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { Scene } from '@babylonjs/core/scene'
 
-const CLOUD_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><path d="M40,80 Q20,80 20,60 Q20,40 50,40 Q60,20 90,30 Q120,10 150,40 Q180,40 180,60 Q180,80 160,80 Z" fill="#ffffff" opacity="0.95"/></svg>`
-const CLOUD_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(CLOUD_SVG)}`
-
-const COUNT = 5
-const CLOUD_Z = -7
-const SPAWN_X = 20
-const DESPAWN_X = -20
+const COUNT = 6
+const SPAWN_Z = 70
+const DESPAWN_Z = -12
 
 function randRange(min: number, max: number): number {
   return min + Math.random() * (max - min)
 }
 
+/** Puffy clouds drifting toward the camera high above the gameplay lane. */
 export class Clouds {
-  private meshes: Mesh[]
+  private readonly meshes: Mesh[] = []
 
   constructor(scene: Scene) {
-    const geometry = new PlaneGeometry(2.5, 1.25)
-    const texture = new TextureLoader().load(CLOUD_DATA_URL)
-    const material = new MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      depthWrite: false,
-      opacity: 0.7,
-    })
+    const mat = new StandardMaterial('cloud-mat', scene)
+    mat.diffuseColor = new Color3(1, 1, 1)
+    mat.emissiveColor = new Color3(0.85, 0.88, 0.92)
+    mat.specularColor = Color3.Black()
+    mat.alpha = 0.85
 
-    this.meshes = []
     for (let i = 0; i < COUNT; i++) {
-      const mesh = new Mesh(geometry, material)
-      mesh.position.z = CLOUD_Z
-      this.meshes.push(mesh)
-      scene.add(mesh)
+      const cloud = MeshBuilder.CreateSphere(`cloud-${i}`, { diameter: 3, segments: 8 }, scene)
+      cloud.material = mat
+      cloud.isPickable = false
+      this.meshes.push(cloud)
     }
-
     this.reset()
   }
 
   step(dt: number, scrollSpeed: number): void {
-    for (const mesh of this.meshes) {
-      mesh.position.x -= scrollSpeed * 0.5 * dt
-      if (mesh.position.x < DESPAWN_X) {
-        mesh.position.x = SPAWN_X
-        mesh.position.y = randRange(1.5, 3.5)
-        const s = randRange(0.7, 1.3)
-        mesh.scale.set(s, s, 1)
+    const speed = scrollSpeed * 0.5
+    for (const cloud of this.meshes) {
+      cloud.position.z -= speed * dt
+      if (cloud.position.z < DESPAWN_Z) {
+        cloud.position.z = SPAWN_Z
+        cloud.position.x = randRange(-16, 16)
+        cloud.position.y = randRange(4, 8)
+        this.scale(cloud)
       }
     }
   }
 
   reset(): void {
-    for (const mesh of this.meshes) {
-      mesh.position.x = randRange(-15, 15)
-      mesh.position.y = randRange(1.5, 3.5)
-      const s = randRange(0.7, 1.3)
-      mesh.scale.set(s, s, 1)
+    for (const cloud of this.meshes) {
+      cloud.position.x = randRange(-16, 16)
+      cloud.position.y = randRange(4, 8)
+      cloud.position.z = randRange(DESPAWN_Z, SPAWN_Z)
+      this.scale(cloud)
     }
+  }
+
+  private scale(cloud: Mesh): void {
+    const s = randRange(0.7, 1.4)
+    cloud.scaling.set(s * 1.6, s * 0.7, s)
   }
 }

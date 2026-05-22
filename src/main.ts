@@ -10,11 +10,9 @@ declare global {
 }
 
 import { createActor } from 'xstate'
-import { BoxGeometry } from 'three'
-import WebGL from 'three/addons/capabilities/WebGL.js'
-import { createRenderer } from './render/createRenderer'
-import { createComposer } from './render/createComposer'
-import { createToonGradient, createToonMaterial, addRimLight, applyColorblindPalette, applyDefaultPalette } from './render/toonMaterial'
+import { createEngine } from './render/createEngine'
+import { createPipeline } from './render/createPipeline'
+import { createToonMaterial, addRimLight, applyColorblindPalette, applyDefaultPalette, COLORBLIND_PIPE_COLOR } from './render/toonMaterial'
 import { GameLoop } from './loop/GameLoop'
 import { InputManager } from './input/InputManager'
 import { Bird } from './entities/Bird'
@@ -36,13 +34,14 @@ import { UIBridge } from './ui/UIBridge'
 import { squashStretch, screenShake, wingFlap, pulseFOV } from './anim/anim'
 import { createParticles } from './particles/createParticles'
 import { prefersReducedMotion } from './a11y/motion'
-import { PIPE_WIDTH, PIPE_DEPTH, PIPE_COLOR, POOL_SIZE } from './constants'
+import { PIPE_COLOR, POOL_SIZE } from './constants'
+import { applyCameraView, CAMERA_VIEWS, CAMERA_VIEW_ORDER } from './render/cameraViews'
+import type { CameraView } from './render/cameraViews'
 import { mulberry32, dailySeed } from './utils/rng'
 import { difficultyFrom } from './systems/Difficulty'
 import { ALL_BIRD_SHAPES, SHAPE_UNLOCK_THRESHOLDS } from './constants'
 
-// Pretty labels for unlock toasts. Geometric shapes use their name;
-// emoji animals show the emoji glyph.
+// Pretty labels for unlock toasts.
 const EMOJI_FOR_SHAPE_FOR_TOAST: Record<string, string> = {
   sphere: 'Sphere', cube: 'Cube', pyramid: 'Pyramid',
   bird: '🐦', cat: '🐱', dog: '🐶', frog: '🐸',
@@ -51,7 +50,15 @@ const EMOJI_FOR_SHAPE_FOR_TOAST: Record<string, string> = {
 import './style.css'
 import './ui/styles.css'
 
-if (!WebGL.isWebGL2Available()) {
+function webgl2Available(): boolean {
+  try {
+    return !!document.createElement('canvas').getContext('webgl2')
+  } catch {
+    return false
+  }
+}
+
+if (!webgl2Available()) {
   const msg = document.createElement('div')
   msg.style.cssText =
     'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-family:sans-serif;font-size:1.2rem;padding:2rem;text-align:center;background:#1a1a1a;color:#fff'
@@ -60,27 +67,28 @@ if (!WebGL.isWebGL2Available()) {
   document.body.appendChild(msg)
 } else {
   const ac = new AbortController()
-  const { renderer, scene, camera } = createRenderer(ac.signal)
-  const canvas = renderer.domElement
+  const { engine, scene, camera, canvas } = createEngine(ac.signal)
 
   const storage = new StorageManager()
   const actor = createActor(gameMachine, {
     input: { bestScore: storage.getBestScore(), mode: storage.getLastMode() },
   })
 
-  const gradient = createToonGradient()
-  const birdMaterial = createToonMaterial(gradient, 0xff7043)
-  const pipeMaterial = createToonMaterial(gradient, PIPE_COLOR)
-
+  const birdMaterial = createToonMaterial(scene, 0xff7043)
+  const pipeMaterial = createToonMaterial(scene, PIPE_COLOR)
   addRimLight(birdMaterial)
 
+  // Apply stored palette BEFORE pool warm-up so pooled pipes clone the right colour.
+  const storedSettings = storage.getSettings()
+  if (storedSettings.palette === 'colorblind') {
+    applyColorblindPalette(birdMaterial, pipeMaterial)
+  }
+
   const bird = new Bird(scene)
-  bird.mesh.material = birdMaterial
   bird.setBaseMaterial(birdMaterial)
 
-  const pipeGeometry = new BoxGeometry(PIPE_WIDTH, 6, PIPE_DEPTH)
   const obstaclePool = new ObjectPool<ObstaclePair>(
-    () => new ObstaclePair(pipeGeometry, pipeMaterial, scene),
+    () => new ObstaclePair(scene, pipeMaterial),
     POOL_SIZE,
   )
 
@@ -88,7 +96,7 @@ if (!WebGL.isWebGL2Available()) {
   const worldLayers = new WorldLayers(scene)
   const clouds = new Clouds(scene)
 
-  const loop = new GameLoop(renderer, scene, camera)
+  const loop = new GameLoop(engine, scene)
   const input = new InputManager(canvas)
   const physics = new PhysicsSystem(bird, actor, storage)
   const scrollSystem = new ScrollSystem(obstaclePool, actor, background, storage)
@@ -99,23 +107,31 @@ if (!WebGL.isWebGL2Available()) {
 
   const audio = new AudioManager()
 
-  // Apply stored palette at startup (per D-13)
-  const storedSettings = storage.getSettings()
   if (storedSettings.palette === 'colorblind') {
-    applyColorblindPalette(birdMaterial, pipeMaterial)
     spawner.setColorblindMode(true)
   }
 
-  // Phase 17 v1.5: apply stored bird shape + image at startup
+  // Apply stored bird shape + image at startup
   bird.setShape(storedSettings.birdShape)
   bird.setImage(storedSettings.birdImage)
 
-  // Phase 20 v1.8: apply stored sub-bus volumes + initial mode music track
+  // Apply stored sub-bus volumes + initial mode music track
   audio.applyVolumes(storedSettings.volumeMaster, storedSettings.volumeMusic, storedSettings.volumeSfx)
   audio.setMusicTrack(storedSettings.lastMode)
 
-  // Phase 20 v1.8 AUDIO-08: balloon fly-by whoosh
+  // Balloon fly-by whoosh (AUDIO-08)
   worldLayers.onBalloonAppear = () => audio.playWhoosh()
+
+  // Camera view — framing preset (position / aim / fov + follow strength).
+  // Switchable from Settings or by cycling with the 'C' key.
+  let currentView: CameraView = storedSettings.cameraView
+  applyCameraView(camera, currentView)
+
+  function setCameraView(view: CameraView, persist: boolean): void {
+    currentView = view
+    applyCameraView(camera, view)
+    if (persist) storage.setSettings({ cameraView: view })
+  }
 
   const ui = new UIBridge(
     actor,
@@ -124,15 +140,20 @@ if (!WebGL.isWebGL2Available()) {
     (palette) => {
       if (palette === 'colorblind') {
         applyColorblindPalette(birdMaterial, pipeMaterial)
+        // Recolour pipes already on screen — their cloned materials don't
+        // track the template, so toggling at runtime must repaint them.
+        obstaclePool.forEachActive((p) => p.setColor(COLORBLIND_PIPE_COLOR))
       } else {
         applyDefaultPalette(birdMaterial, pipeMaterial)
+        obstaclePool.forEachActive((p) => p.setColor(PIPE_COLOR))
       }
       spawner.setColorblindMode(palette === 'colorblind')
     },
-    camera,
+    scene,
     timer,
     (shape) => bird.setShape(shape),
     (image) => bird.setImage(image),
+    (view) => setCameraView(view, false),
   )
   const particles = createParticles(scene)
 
@@ -140,15 +161,13 @@ if (!WebGL.isWebGL2Available()) {
     const state = actor.getSnapshot().value
     if (state === 'title') {
       actor.send({ type: 'START' })
-      // v1.9 fix: queue a flap so the bird rises immediately on the first
-      // playing frame instead of falling for 0.65s before user reaction.
       physics.queueFlap()
     } else if (state === 'playing') {
       physics.queueFlap()
       actor.send({ type: 'FLAP' })
       audio.playFlap()
       if (!prefersReducedMotion(storage)) {
-        squashStretch(bird.mesh)
+        squashStretch(bird.root)
         wingFlap(bird)
       }
       if (storage.getSettings().flapTrail && !prefersReducedMotion(storage)) {
@@ -156,7 +175,6 @@ if (!WebGL.isWebGL2Available()) {
       }
     } else if (state === 'gameOver') {
       actor.send({ type: 'RESTART' })
-      // v1.9 fix: same as title — bird rises on first playing frame after restart.
       physics.queueFlap()
     }
   })
@@ -184,43 +202,31 @@ if (!WebGL.isWebGL2Available()) {
     },
   })
   loop.add({ step: (dt: number) => bird.stepGhosts(dt) })
-  // Phase 13: animate sky shader colors over a 60s cycle (motion-gated)
+  // Animate sky colours over a 60s cycle (motion-gated)
   loop.add({ step: (dt: number) => background.cycleSky(dt, prefersReducedMotion(storage)) })
-  // Camera follow + opt-in velocity bob (Diorama Pass v1.7).
-  //   - Always-on subtle position follow (0.18 of bird.y, lerped) — gives
-  //     a gentle parallax read on the layered world without free-camera feel.
-  //   - Velocity-based bob ADDED ON TOP when the cameraBob Settings toggle
-  //     is on (Phase 15 POLISH-03). Off by default for motion-sensitive users.
-  //   - Reduce-motion snaps to base regardless of toggle.
-  const CAMERA_BASE_Y = 0
-  const CAMERA_FOLLOW_FACTOR = 0.18
+
+  // Vertical camera follow — eases toward the bird's height using the active
+  // view's follow strength. Velocity bob is opt-in (cameraBob setting).
   const CAMERA_BOB_FACTOR = 0.05
   const CAMERA_LERP = 0.08
   loop.add({
     step: (_dt: number) => {
       const s = actor.getSnapshot().value
       if (s !== 'playing' && s !== 'dying') return
+      const cfg = CAMERA_VIEWS[currentView]
       if (prefersReducedMotion(storage)) {
-        if (camera.position.y !== CAMERA_BASE_Y) camera.position.y = CAMERA_BASE_Y
+        camera.position.y = cfg.pos.y
         return
       }
-      const follow = bird.position.y * CAMERA_FOLLOW_FACTOR
+      const follow = bird.position.y * cfg.followFactor
       const bob = storage.getSettings().cameraBob ? bird.velocity.y * CAMERA_BOB_FACTOR : 0
-      const target = CAMERA_BASE_Y + follow + bob
+      const target = cfg.pos.y + follow + bob
       camera.position.y += (target - camera.position.y) * CAMERA_LERP
     },
   })
-  // Title-screen mascot positioning: lift bird above viewport center so it
-  // doesn't sit behind the mode picker / leaderboard, and pull forward in z
-  // so it reads as the foreground character. Resets to (0,0,0) on roundStarted.
-  // Title-screen mascot framing — TitleScreen.tsx adds a `.title-bird-zone`
-  // flex-grow spacer between the logo and the bottom DOM stack, opening
-  // a clear band centered around viewport ~34vh. World y=1.0 maps to that
-  // band on both desktop and mobile aspect ratios. Bird stays at world x=0
-  // (centered) so it lines up under the centered logo.
-  const TITLE_MASCOT_X = 0
-  const TITLE_MASCOT_Y = 1.0
-  const TITLE_MASCOT_Z = 0.5
+
+  // Title-screen mascot: bird hovers centred in the corridor, gently bobbing.
+  const TITLE_MASCOT_Y = 0.3
   loop.add({
     step: (dt: number) => {
       const s = actor.getSnapshot().value
@@ -228,21 +234,18 @@ if (!WebGL.isWebGL2Available()) {
         if (s === 'playing') bobTime = 0
         return
       }
-      // Showcase position — off-center left, above viewport center, forward
-      bird.mesh.position.x = TITLE_MASCOT_X
-      bird.mesh.position.z = TITLE_MASCOT_Z
+      bird.root.position.x = 0
+      bird.root.position.z = 0
       if (prefersReducedMotion(storage)) {
-        bird.mesh.position.y = TITLE_MASCOT_Y
+        bird.root.position.y = TITLE_MASCOT_Y
         return
       }
       bobTime += dt
-      bird.mesh.position.y = TITLE_MASCOT_Y + Math.sin(bobTime * Math.PI * 2) * 0.15
+      bird.root.position.y = TITLE_MASCOT_Y + Math.sin(bobTime * Math.PI * 2) * 0.18
     },
   })
 
-  // Render-time interpolation for the bird only (the most motion-visible
-  // entity). Title bob writes mesh.position directly, so interp is gated to
-  // 'playing'/'dying' where physics drives the position.
+  // Render-time interpolation for the bird (gated to physics-driven states).
   loop.addInterpolator((alpha) => {
     const s = actor.getSnapshot().value
     if (s === 'playing' || s === 'dying') {
@@ -250,12 +253,21 @@ if (!WebGL.isWebGL2Available()) {
     }
   })
 
-  const composerResult = createComposer(renderer, scene, camera, ac.signal, storage.getSettings().quality)
-  if (composerResult !== null) {
-    loop.setRenderFn(composerResult.render)
-  }
+  createPipeline(scene, camera, storage.getSettings().quality)
 
   actor.start()
+
+  // 'C' cycles the camera view live (Chase → Side → Far → …).
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key === 'c' || e.key === 'C') {
+        const i = CAMERA_VIEW_ORDER.indexOf(currentView)
+        setCameraView(CAMERA_VIEW_ORDER[(i + 1) % CAMERA_VIEW_ORDER.length]!, true)
+      }
+    },
+    { signal: ac.signal },
+  )
 
   document.addEventListener(
     'visibilitychange',
@@ -267,7 +279,6 @@ if (!WebGL.isWebGL2Available()) {
     { signal: ac.signal },
   )
 
-  // Capture beforeinstallprompt for deferred PWA install CTA (per D-10)
   window.addEventListener(
     'beforeinstallprompt',
     (e) => {
@@ -279,18 +290,17 @@ if (!WebGL.isWebGL2Available()) {
 
   ui.mount()
 
-  // Reset bird + clear obstacles when the machine emits 'roundStarted'
-  // (i.e. on START or RESTART, but not on RESUME). Driven by the machine's
-  // emitted event so main.ts doesn't need to track state-transition history.
+  // Reset bird + clear obstacles when the machine emits 'roundStarted'.
   let roundCount = 0
   actor.on('roundStarted', () => {
     roundCount++
     bird.position.set(0, 0, 0)
     bird.velocity.set(0, 0, 0)
-    bird.prevPosition.set(0, 0, 0)  // reset interp anchor (no first-frame snap)
-    bird.mesh.rotation.z = 0
-    bird.mesh.position.set(0, 0, 0)  // clear title-mascot x/y/z offset
+    bird.prevPosition.set(0, 0, 0)
+    bird.root.rotation.z = 0
+    bird.root.position.set(0, 0, 0)
     bird.syncMesh()
+    bird.setAlpha(1)
     const toRelease: ObstaclePair[] = []
     obstaclePool.forEachActive((pair) => {
       pair.hide()
@@ -303,7 +313,7 @@ if (!WebGL.isWebGL2Available()) {
     timer.reset()
     clouds.reset()
     background.resetSkyCycle()
-    camera.position.y = CAMERA_BASE_Y
+    applyCameraView(camera, currentView)
 
     const currentMode = actor.getSnapshot().context.mode
     if (currentMode === 'daily') {
@@ -312,19 +322,8 @@ if (!WebGL.isWebGL2Available()) {
       spawner.setRng(Math.random)
     }
 
-    // Reset bird material opacity in case a respawn-flash was mid-tween
-    if ((bird.mesh.material as { opacity?: number }).opacity !== undefined) {
-      ;(bird.mesh.material as { opacity?: number; transparent?: boolean }).opacity = 1
-    }
-
     if (import.meta.env.DEV) {
-      const mem = renderer.info.memory
-      console.log(
-        `[mem probe] round=${roundCount} geometries=${mem.geometries} textures=${mem.textures}`,
-      )
-      if (roundCount >= 3 && mem.geometries > roundCount + 5) {
-        console.warn('[mem probe] geometry count growing — possible leak')
-      }
+      console.log(`[mem probe] round=${roundCount} meshes=${scene.meshes.length}`)
     }
   })
 
@@ -334,23 +333,14 @@ if (!WebGL.isWebGL2Available()) {
   let lastScore = 0
   let prevState: string | undefined
 
-  // v1.9 — Lives system. lifeLost: respawn bird at origin + flash invincibility
-  // window + fire RESPAWN_DONE so machine returns to playing. lifeGained:
-  // particle pop + sound on the bird (no state change).
+  // v1.9 — Lives system.
   actor.on('lifeLost', () => {
     bird.position.set(0, 0, 0)
     bird.velocity.set(0, 0, 0)
     bird.prevPosition.set(0, 0, 0)
-    bird.mesh.rotation.z = 0
+    bird.root.rotation.z = 0
     bird.syncMesh()
-    // v1.9 fix: queue a flap so the bird rises on the first playing frame
-    // after RESPAWN_DONE — gives ~1s of breathing room before gravity drops
-    // it to the floor (otherwise the user "loses a heart without touching
-    // anything" because they were still distracted by the red flash).
     physics.queueFlap()
-    // Release any currently-on-screen obstacles so the bird doesn't respawn
-    // inside a pipe (CollisionSystem is gated on 'playing' so it'd ignore
-    // the overlap during respawn but instantly HIT once 'playing' resumes).
     const toRelease: ObstaclePair[] = []
     obstaclePool.forEachActive((pair) => {
       pair.hide()
@@ -360,25 +350,19 @@ if (!WebGL.isWebGL2Available()) {
     if (!prefersReducedMotion(storage)) {
       particles.burstTinted(
         { x: bird.position.x, y: bird.position.y, z: bird.position.z },
-        0xff5252,  // red — life lost
+        0xff5252,
       )
-      // Bird "blinks" during invincibility window — toggle visibility 5x
-      const mat = bird.mesh.material as { transparent?: boolean; opacity?: number }
-      if (mat.opacity !== undefined) {
-        mat.transparent = true
-        let blinks = 0
-        const blink = () => {
-          if (mat.opacity === undefined) return
-          mat.opacity = mat.opacity > 0.5 ? 0.3 : 1.0
-          blinks++
-          if (blinks < 6) setTimeout(blink, 200)
-          else mat.opacity = 1.0  // settle visible
-        }
-        blink()
+      // Bird "blinks" during the invincibility window.
+      let blinks = 0
+      const blink = () => {
+        bird.setAlpha(blinks % 2 === 0 ? 0.3 : 1.0)
+        blinks++
+        if (blinks < 6) setTimeout(blink, 200)
+        else bird.setAlpha(1)
       }
+      blink()
     }
-    audio.playDeath()  // reuse death sfx for life-lost — distinct from gameOver
-    // Hand control back to the machine after the invincibility window
+    audio.playDeath()
     setTimeout(() => actor.send({ type: 'RESPAWN_DONE' }), 1400)
   })
 
@@ -386,10 +370,10 @@ if (!WebGL.isWebGL2Available()) {
     if (!prefersReducedMotion(storage)) {
       particles.burstTinted(
         { x: bird.position.x, y: bird.position.y, z: bird.position.z },
-        0x66ff99,  // green — bonus life
+        0x66ff99,
       )
     }
-    audio.playScore()  // upbeat — reuse score sfx
+    audio.playScore()
   })
 
   actor.subscribe((snapshot) => {
@@ -398,25 +382,22 @@ if (!WebGL.isWebGL2Available()) {
       console.log('[machine]', s, 'score:', snapshot.context.score)
     }
 
-    // Music control: play in 'playing', fade on 'dying', stop elsewhere
     if (s === 'playing') {
       audio.setMusicPlaying(true)
-      audio.setMusicVolume(0.4)  // restore gameplay volume (was lowered on title)
+      audio.setMusicVolume(0.4)
     } else if (s === 'dying') {
       audio.fadeMusicOut(600)
       audio.playDeath()
     } else if (s === 'paused') {
       audio.setMusicPlaying(false)
     } else if (s === 'title') {
-      // Music plays softly on title screen (BEAUTY-02 / D-07)
       audio.setMusicPlaying(true)
       audio.setMusicVolume(0.2)
     } else if (s === 'gameOver') {
       audio.setMusicPlaying(false)
     }
 
-    // Phase 18 PROG-03: detect newly-crossed unlock thresholds on game-over.
-    // Show staggered toasts (350ms apart). Persist via storage.unlockShape.
+    // Unlock thresholds crossed on game-over.
     if (s === 'gameOver' && prevState !== 'gameOver') {
       const score = snapshot.context.score
       const currentUnlocks = storage.getSettings().unlocks
@@ -435,15 +416,15 @@ if (!WebGL.isWebGL2Available()) {
       }
     }
 
-    // Juice on dying transition (screen shake + particle burst) — gated behind reduced motion
+    // Juice on dying transition.
     if (s === 'dying' && prevState !== 'dying') {
       if (!prefersReducedMotion(storage)) {
-        screenShake(camera)
+        screenShake(camera, camera.position.x, camera.position.y)
         particles.burst({ x: bird.position.x, y: bird.position.y, z: bird.position.z })
       }
     }
 
-    // Score SFX + popup + milestone on each increment
+    // Score SFX + popup + milestone on each increment.
     if (s === 'playing' && snapshot.context.score > lastScore) {
       audio.playScore()
       if (!prefersReducedMotion(storage)) {
@@ -458,13 +439,33 @@ if (!WebGL.isWebGL2Available()) {
             0xffd166,
           )
           ui.triggerMilestoneFlash()
-          pulseFOV(camera)  // tiny zoom-out → back, ~400ms
+          pulseFOV(camera, CAMERA_VIEWS[currentView].fov, CAMERA_VIEWS[currentView].fov + 0.12)
         }
       }
     }
     lastScore = snapshot.context.score
     prevState = s
   })
+
+  // Dev-only test hook for the headless smoke test (stripped from prod builds).
+  if (import.meta.env.DEV) {
+    ;(window as unknown as { __flappy?: unknown }).__flappy = {
+      birdY: () => bird.position.y,
+      score: () => actor.getSnapshot().context.score,
+      state: () => actor.getSnapshot().value,
+      nextGapY: () => {
+        let best = 0
+        let bestZ = Infinity
+        obstaclePool.forEachActive((p) => {
+          if (p.z > -0.5 && p.z < bestZ) {
+            bestZ = p.z
+            best = p.gapCenterY
+          }
+        })
+        return best
+      },
+    }
+  }
 
   loop.start()
 }

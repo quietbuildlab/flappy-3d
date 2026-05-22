@@ -1,82 +1,95 @@
-import { Group, Mesh, BoxGeometry, Material, MeshToonMaterial, Box3, Scene } from 'three'
-import { PIPE_WIDTH, PIPE_DEPTH } from '../constants'
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { Scene } from '@babylonjs/core/scene'
+import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { PIPE_RADIUS, PIPE_HEIGHT } from '../constants'
+import { hexColor3 } from '../render/toonMaterial'
 
-const PIPE_HEIGHT = 6
-// Pipe cap (rim) — slightly wider than the body, thin slab at the gap end
-const CAP_HEIGHT = 0.25
-const CAP_WIDEN = 0.20
-// Rim band — thin slab just inside the cap, narrower than cap but wider
-// than the body; reads as a depth band that catches the toon shading.
-const RIM_HEIGHT = 0.08
-const RIM_WIDEN = 0.10
-// Small per-pair Y rotation (capped tight so AABB collision stays accurate
-// — rotated AABBs grow by ~0.5% at 3°, gameplay-imperceptible).
-const PIPE_YROT_MAX = 0.06  // ≈ 3.5°
+const CAP_HEIGHT = 0.3
+const CAP_RADIUS = PIPE_RADIUS + 0.16
 
+/**
+ * A top + bottom pipe pair with a vertical gap. In the true-3D rebuild the
+ * pipes are vertical cylinders along Y; the pair scrolls toward the camera
+ * along −Z. `root.position.z` is the scroll coordinate.
+ */
 export class ObstaclePair {
-  readonly group: Group
-  private topMesh: Mesh<BoxGeometry, MeshToonMaterial>
-  private bottomMesh: Mesh<BoxGeometry, MeshToonMaterial>
-  private topCap: Mesh<BoxGeometry, MeshToonMaterial>
-  private bottomCap: Mesh<BoxGeometry, MeshToonMaterial>
-  private topRim: Mesh<BoxGeometry, MeshToonMaterial>
-  private bottomRim: Mesh<BoxGeometry, MeshToonMaterial>
-  private topBox: Box3 = new Box3()
-  private bottomBox: Box3 = new Box3()
-  private readonly pairMaterial: MeshToonMaterial
+  readonly root: TransformNode
+  private readonly topPipe: Mesh
+  private readonly bottomPipe: Mesh
+  private readonly topCap: Mesh
+  private readonly bottomCap: Mesh
+  private readonly material: StandardMaterial
   passed = false
+  // Gap geometry — read by CollisionSystem's hand-rolled AABB.
+  gapCenterY = 0
+  gapHeight = 0
 
-  constructor(geometry: BoxGeometry, material: Material, scene: Scene) {
-    this.group = new Group()
-    this.pairMaterial = (material as MeshToonMaterial).clone()
-    this.topMesh = new Mesh(geometry, this.pairMaterial)
-    this.bottomMesh = new Mesh(geometry, this.pairMaterial)
-    this.group.add(this.topMesh)
-    this.group.add(this.bottomMesh)
-    // Caps — wide slab at the gap-facing end, classic Flappy silhouette
-    const capGeo = new BoxGeometry(PIPE_WIDTH + 2 * CAP_WIDEN, CAP_HEIGHT, PIPE_DEPTH + 2 * CAP_WIDEN)
-    this.topCap = new Mesh(capGeo, this.pairMaterial)
-    this.bottomCap = new Mesh(capGeo, this.pairMaterial)
-    this.group.add(this.topCap)
-    this.group.add(this.bottomCap)
-    // Rim bands — thinner slab just inside the cap, gives a 2-step bevel
-    const rimGeo = new BoxGeometry(PIPE_WIDTH + 2 * RIM_WIDEN, RIM_HEIGHT, PIPE_DEPTH + 2 * RIM_WIDEN)
-    this.topRim = new Mesh(rimGeo, this.pairMaterial)
-    this.bottomRim = new Mesh(rimGeo, this.pairMaterial)
-    this.group.add(this.topRim)
-    this.group.add(this.bottomRim)
-    this.group.visible = false
-    scene.add(this.group)
+  constructor(scene: Scene, material: StandardMaterial) {
+    this.root = new TransformNode('obstacle-pair', scene)
+    this.material = material.clone(`pipe-mat-${this.root.uniqueId}`) as StandardMaterial
+
+    this.topPipe = MeshBuilder.CreateCylinder(
+      'pipe-top',
+      { diameter: PIPE_RADIUS * 2, height: PIPE_HEIGHT, tessellation: 20 },
+      scene,
+    )
+    this.bottomPipe = MeshBuilder.CreateCylinder(
+      'pipe-bottom',
+      { diameter: PIPE_RADIUS * 2, height: PIPE_HEIGHT, tessellation: 20 },
+      scene,
+    )
+    this.topCap = MeshBuilder.CreateCylinder(
+      'pipe-cap-top',
+      { diameter: CAP_RADIUS * 2, height: CAP_HEIGHT, tessellation: 20 },
+      scene,
+    )
+    this.bottomCap = MeshBuilder.CreateCylinder(
+      'pipe-cap-bottom',
+      { diameter: CAP_RADIUS * 2, height: CAP_HEIGHT, tessellation: 20 },
+      scene,
+    )
+    for (const m of [this.topPipe, this.bottomPipe, this.topCap, this.bottomCap]) {
+      m.material = this.material
+      m.parent = this.root
+    }
+    this.root.setEnabled(false)
+  }
+
+  get z(): number {
+    return this.root.position.z
+  }
+
+  set z(value: number) {
+    this.root.position.z = value
   }
 
   setColor(colorHex: number): void {
-    this.pairMaterial.color.set(colorHex)
+    const c = hexColor3(colorHex)
+    this.material.diffuseColor = c
+    this.material.emissiveColor = c.scale(0.18)
   }
 
-  reset(x: number, gapCenterY: number, gapHeight: number): void {
+  reset(z: number, gapCenterY: number, gapHeight: number): void {
     this.passed = false
-    this.group.visible = true
-    this.group.position.x = x
-    // Subtle, deterministic Y-rotation per pair so depth reads. Using
-    // sin(x) keeps it stable across re-spawns of the same x bucket.
-    this.group.rotation.y = Math.sin(x * 1.7) * PIPE_YROT_MAX
+    this.gapCenterY = gapCenterY
+    this.gapHeight = gapHeight
+    this.root.setEnabled(true)
+    this.root.position.set(0, 0, z)
 
-    this.topMesh.position.y = gapCenterY + gapHeight / 2 + PIPE_HEIGHT / 2
-    this.bottomMesh.position.y = gapCenterY - gapHeight / 2 - PIPE_HEIGHT / 2
-    // Caps + rim bands at the gap-facing end of each pipe
+    this.topPipe.position.y = gapCenterY + gapHeight / 2 + PIPE_HEIGHT / 2
+    this.bottomPipe.position.y = gapCenterY - gapHeight / 2 - PIPE_HEIGHT / 2
     this.topCap.position.y = gapCenterY + gapHeight / 2 + CAP_HEIGHT / 2
     this.bottomCap.position.y = gapCenterY - gapHeight / 2 - CAP_HEIGHT / 2
-    this.topRim.position.y = gapCenterY + gapHeight / 2 + CAP_HEIGHT + RIM_HEIGHT / 2
-    this.bottomRim.position.y = gapCenterY - gapHeight / 2 - CAP_HEIGHT - RIM_HEIGHT / 2
-  }
-
-  getAABBs(): [Box3, Box3] {
-    this.topBox.setFromObject(this.topMesh)
-    this.bottomBox.setFromObject(this.bottomMesh)
-    return [this.topBox, this.bottomBox]
   }
 
   hide(): void {
-    this.group.visible = false
+    this.root.setEnabled(false)
+  }
+
+  dispose(): void {
+    this.root.dispose(false, true)
+    this.material.dispose()
   }
 }

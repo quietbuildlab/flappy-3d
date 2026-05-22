@@ -1,12 +1,12 @@
-import { Color } from 'three'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
 
 // Phase 13 — day/night cycle keyframes (ATMOS-03)
 // 4 keyframes evenly spaced at 0s / 15s / 30s / 45s; loops back to 0 at 60s
 export const SKY_KEYFRAMES = [
-  { top: new Color(0x7ec8e3), bottom: new Color(0xbce6f0) }, // 0s  — morning (current default)
-  { top: new Color(0x5dabd0), bottom: new Color(0xa8d5e8) }, // 15s — midday
-  { top: new Color(0xff9966), bottom: new Color(0xffd6b3) }, // 30s — sunset
-  { top: new Color(0x3a4a8c), bottom: new Color(0x7a5a9c) }, // 45s — dusk
+  { top: new Color3(0.49, 0.78, 0.89), bottom: new Color3(0.74, 0.90, 0.94) }, // 0s  — morning
+  { top: new Color3(0.36, 0.67, 0.82), bottom: new Color3(0.66, 0.84, 0.91) }, // 15s — midday
+  { top: new Color3(1.00, 0.60, 0.40), bottom: new Color3(1.00, 0.84, 0.70) }, // 30s — sunset
+  { top: new Color3(0.23, 0.29, 0.55), bottom: new Color3(0.48, 0.35, 0.61) }, // 45s — dusk
 ] as const
 export const SKY_CYCLE_DURATION_S = 60
 
@@ -18,17 +18,23 @@ export const WORLD_CEILING_Y = 4
 export const FIXED_DT = 1 / 60
 export const DT_CLAMP_MAX = 0.1
 
-// Phase 2 — spatial layout (per D-12, D-32)
-export const BIRD_X = 0                     // bird stays at world x=0 (fixed camera)
-export const OBSTACLE_SPAWN_X = 6           // obstacles spawn here (right edge)
-export const OBSTACLE_DESPAWN_X = -6        // obstacles released to pool past here (left edge)
+// True-3D spatial layout (chase camera looking down +Z).
+// The bird is fixed at world (0,0); obstacles rush toward it along −Z.
+export const BIRD_Z = 0                     // bird stays at world z=0
+export const OBSTACLE_SPAWN_Z = 22          // obstacles spawn far ahead (+Z)
+export const OBSTACLE_DESPAWN_Z = -10       // released to pool once past the camera
 
-// Phase 2 — obstacle geometry (per D-11, D-32)
-export const PIPE_WIDTH = 0.8
-export const PIPE_DEPTH = 0.6
-export const PIPE_COLOR = 0x4caf50          // green placeholder; refined in Phase 3
+// Chase camera framing
+export const CAMERA_OFFSET_Z = -7           // camera sits 7 units behind the bird
+export const CAMERA_BASE_Y = 1.6            // camera floats above the gameplay lane
+export const CAMERA_FOV = 0.85              // radians (~49°)
 
-// Phase 2 — difficulty ramp (per D-13, D-32)
+// Obstacle geometry — pipes are vertical cylinders along Y
+export const PIPE_RADIUS = 0.7
+export const PIPE_HEIGHT = 8
+export const PIPE_COLOR = 0x4caf50          // green
+
+// Difficulty ramp (per D-13)
 export const BASE_SPAWN_INTERVAL = 1.6      // seconds between spawns at score 0
 export const MIN_SPAWN_INTERVAL = 1.0       // seconds between spawns at score 40
 export const BASE_SCROLL_SPEED = 3.5        // units/sec at score 0
@@ -39,9 +45,6 @@ export const GAP_CENTER_RANGE = 1.0         // gap center randomized in [-1.0, +
 export const DIFFICULTY_SCORE_CAP = 40      // score at which difficulty plateaus
 
 // Phase 16 — user-selectable difficulty presets (v1.5).
-// Each preset scales gameplay difficulty axes. Easy = forgiving for new
-// players (fresh-install default). Normal = original v1.0..v1.4 feel
-// (existing-user default via v3→v4 migration). Hard = veterans only.
 export type DifficultyPreset = 'easy' | 'normal' | 'hard'
 export interface DifficultyMultiplier {
   gap: number          // multiplied into BASE/MIN_GAP_HEIGHT (>1 = wider gap = easier)
@@ -56,9 +59,6 @@ export const DIFFICULTY_MULTIPLIERS: Record<DifficultyPreset, DifficultyMultipli
 }
 
 // Phase 18 — Score-threshold unlocks for bird shapes (PROG-01).
-// `sphere` is unlocked at install (default starting shape). All others
-// require crossing the listed best-score threshold. Existing v4 saves
-// are grandfather-unlocked at migration time so no surprise loss.
 export const SHAPE_UNLOCK_THRESHOLDS: Record<string, number> = {
   sphere:  0,
   cube:    5,
@@ -70,27 +70,21 @@ export const SHAPE_UNLOCK_THRESHOLDS: Record<string, number> = {
   unicorn: 150,
   penguin: 200,
 }
-/** All shape ids in unlock order. Source-of-truth for picker iteration
- * and v4→v5 grandfather migration. */
+/** All shape ids in unlock order. */
 export const ALL_BIRD_SHAPES = ['sphere','cube','pyramid','bird','cat','dog','frog','unicorn','penguin'] as const
 
 // Phase 7 — pipe color cycling (BEAUTY-08, D-14, D-18)
-// 4 toon colors cycling per ObstaclePair spawn. PIPE_COLOR_CYCLE[0] === PIPE_COLOR (green).
-// All colors chosen for adequate luminance contrast against sky-blue background.
-// When colorblind palette is active, cycling is suppressed (uses colorblind single color instead).
 export const PIPE_COLOR_CYCLE: readonly number[] = [
-  0x4caf50,  // green (matches existing PIPE_COLOR)
+  0x4caf50,  // green
   0x3f8fb8,  // teal-blue
   0xb8843f,  // warm orange-brown
   0x9b3fb8,  // muted purple
 ] as const
 
-// Phase 2 — object pool (per D-07, D-22)
-export const POOL_SIZE = 8                  // pre-warmed ObstaclePair instances
+// Object pool — pre-warmed ObstaclePair instances
+export const POOL_SIZE = 10
 
-// Phase 2 — post-processing (per D-17, D-32)
-export const BLOOM_STRENGTH = 0.7
-export const BLOOM_RADIUS = 0.6
-export const BLOOM_THRESHOLD = 0.85
-export const VIGNETTE_OFFSET = 1.0
-export const VIGNETTE_DARKNESS = 0.4
+// Post-processing (bloom + vignette)
+export const BLOOM_WEIGHT = 0.55
+export const BLOOM_THRESHOLD = 0.78
+export const VIGNETTE_WEIGHT = 2.2

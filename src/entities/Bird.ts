@@ -1,348 +1,321 @@
-import {
-  Mesh,
-  Group,
-  SphereGeometry,
-  BoxGeometry,
-  ConeGeometry,
-  PlaneGeometry,
-  BufferGeometry,
-  MeshStandardMaterial,
-  MeshToonMaterial,
-  MeshBasicMaterial,
-  Material,
-  Texture,
-  CanvasTexture,
-  SRGBColorSpace,
-  Vector3,
-  Box3,
-  Scene,
-  DoubleSide,
-} from 'three'
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { Scene } from '@babylonjs/core/scene'
 import type { BirdShape } from '../storage/StorageManager'
 
 const GHOST_COUNT = 3
-const GHOST_OPACITIES = [0.6, 0.4, 0.2] as const
-const GHOST_SCALES = [0.95, 0.90, 0.85] as const
+const GHOST_OPACITIES = [0.55, 0.38, 0.2] as const
+const GHOST_SCALES = [0.95, 0.9, 0.85] as const
 const GHOST_FADE_SPEED = 1 / 0.18 // opacity → 0 in 180ms
 
 const GEOMETRIC_SHAPES: ReadonlySet<BirdShape> = new Set(['sphere', 'cube', 'pyramid'])
 const EMOJI_FOR_SHAPE: Record<string, string> = {
-  bird:    '🐦',
-  cat:     '🐱',
-  dog:     '🐶',
-  frog:    '🐸',
-  unicorn: '🦄',
-  penguin: '🐧',
+  bird: '🐦', cat: '🐱', dog: '🐶', frog: '🐸', unicorn: '🦄', penguin: '🐧',
 }
 
+/**
+ * The player bird. `root` is the transform physics drives; the visible body
+ * is a swappable child, with wing/eye/beak/tail accents and an invisible
+ * collision hitbox that stays constant regardless of the cosmetic shape.
+ */
 export class Bird {
-  readonly mesh: Mesh<BufferGeometry, Material>
-  readonly leftWing: Mesh<SphereGeometry, MeshToonMaterial>
-  readonly rightWing: Mesh<SphereGeometry, MeshToonMaterial>
-  readonly leftEye: Mesh<SphereGeometry, MeshBasicMaterial>
-  readonly rightEye: Mesh<SphereGeometry, MeshBasicMaterial>
-  readonly beak: Mesh<ConeGeometry, MeshToonMaterial>
-  readonly tail: Group  // 3 tail-feather cones, grouped for hide/show + dispose
-  readonly position: Vector3 = new Vector3(0, 0, 0)
-  readonly velocity: Vector3 = new Vector3(0, 0, 0)
-  readonly prevPosition: Vector3 = new Vector3(0, 0, 0)  // for render interpolation
-  private readonly boundingBox: Box3 = new Box3()
-  private ghosts: Mesh<SphereGeometry, MeshBasicMaterial>[] = []
-  private ghostHead = 0  // ring buffer head index
+  readonly root: TransformNode
+  body: Mesh
+  readonly leftWing: Mesh
+  readonly rightWing: Mesh
+  private readonly leftEye: Mesh
+  private readonly rightEye: Mesh
+  private readonly beak: Mesh
+  private readonly tail: TransformNode
 
-  // Phase 17: shape + image swapping
+  readonly position = new Vector3(0, 0, 0)
+  readonly velocity = new Vector3(0, 0, 0)
+  readonly prevPosition = new Vector3(0, 0, 0)
+
+  private readonly scene: Scene
+  private ghosts: Mesh[] = []
+  private ghostHead = 0
+
   private currentShape: BirdShape = 'sphere'
   private currentImage: string | null = null
-  private baseMaterial: Material | null = null  // toon (rim-lit) — restore after image clear
-  private imageMaterial: MeshBasicMaterial | null = null
-  private imageTexture: Texture | null = null
+  private imageToken = 0
+  private baseMaterial: StandardMaterial | null = null
+  private skinMaterial: StandardMaterial | null = null
+  private skinTexture: DynamicTexture | null = null
 
   constructor(scene: Scene) {
-    const geo = new SphereGeometry(0.35, 16, 10)
-    const mat: Material = new MeshStandardMaterial({ color: 0xff7043 })
-    this.mesh = new Mesh(geo, mat)
-    this.mesh.scale.set(1, 0.65, 0.8)
-    scene.add(this.mesh)
+    this.scene = scene
+    this.root = new TransformNode('bird-root', scene)
 
-    // Wing meshes — rounded ellipsoid (sphere scaled flat) instead of slab boxes.
-    // Reads as a soft wing rather than a paddle. Anchor on +Z/-Z (sides facing
-    // camera) and lift slightly above body center so wings flare visibly.
-    const wingGeo = new SphereGeometry(0.32, 12, 8)
-    const wingMat = new MeshToonMaterial({ color: 0xff8a5c, side: DoubleSide })
-    this.leftWing = new Mesh(wingGeo, wingMat)
-    this.leftWing.scale.set(0.45, 0.18, 1.0)  // long along Z, thin in Y
-    this.leftWing.position.set(0, 0.05, -0.30)
-    this.mesh.add(this.leftWing)
+    this.body = MeshBuilder.CreateSphere('bird-body', { diameter: 0.7, segments: 16 }, scene)
+    this.body.scaling.set(1, 0.65, 0.8)
+    this.body.parent = this.root
 
-    this.rightWing = new Mesh(wingGeo, wingMat.clone())
-    this.rightWing.scale.set(0.45, 0.18, 1.0)
-    this.rightWing.position.set(0, 0.05, 0.30)
-    this.mesh.add(this.rightWing)
+    // Wings — flattened ellipsoids on the ±X sides.
+    const wingMat = new StandardMaterial('bird-wing', scene)
+    wingMat.diffuseColor = new Color3(1, 0.54, 0.36)
+    wingMat.specularColor = Color3.Black()
+    this.leftWing = MeshBuilder.CreateSphere('bird-wing-l', { diameter: 0.64, segments: 8 }, scene)
+    this.leftWing.scaling.set(1.0, 0.22, 0.5)
+    this.leftWing.position.set(0.3, 0.05, 0)
+    this.leftWing.material = wingMat
+    this.leftWing.parent = this.root
+    this.rightWing = MeshBuilder.CreateSphere('bird-wing-r', { diameter: 0.64, segments: 8 }, scene)
+    this.rightWing.scaling.set(1.0, 0.22, 0.5)
+    this.rightWing.position.set(-0.3, 0.05, 0)
+    this.rightWing.material = wingMat
+    this.rightWing.parent = this.root
 
-    // Eyes — slightly bigger (was 0.07 → 0.09) so they read at gameplay distance
-    const eyeGeo = new SphereGeometry(0.09, 12, 10)
-    const eyeMat = new MeshBasicMaterial({ color: 0x111111 })
-    this.leftEye = new Mesh(eyeGeo, eyeMat)
-    this.leftEye.position.set(0.20, 0.20, 0.22)
-    this.mesh.add(this.leftEye)
+    // Eyes — small dark spheres at the front (+Z).
+    const eyeMat = new StandardMaterial('bird-eye', scene)
+    eyeMat.diffuseColor = new Color3(0.07, 0.07, 0.07)
+    eyeMat.emissiveColor = new Color3(0.04, 0.04, 0.04)
+    eyeMat.specularColor = new Color3(0.5, 0.5, 0.5)
+    this.leftEye = MeshBuilder.CreateSphere('bird-eye-l', { diameter: 0.18, segments: 8 }, scene)
+    this.leftEye.position.set(0.18, 0.2, 0.22)
+    this.leftEye.material = eyeMat
+    this.leftEye.parent = this.root
+    this.rightEye = MeshBuilder.CreateSphere('bird-eye-r', { diameter: 0.18, segments: 8 }, scene)
+    this.rightEye.position.set(-0.18, 0.2, 0.22)
+    this.rightEye.material = eyeMat
+    this.rightEye.parent = this.root
 
-    this.rightEye = new Mesh(eyeGeo, eyeMat)
-    this.rightEye.position.set(0.20, 0.20, -0.22)
-    this.mesh.add(this.rightEye)
+    // Beak — cone pointing forward (+Z).
+    const beakMat = new StandardMaterial('bird-beak', scene)
+    beakMat.diffuseColor = new Color3(1, 0.72, 0.3)
+    beakMat.specularColor = Color3.Black()
+    this.beak = MeshBuilder.CreateCylinder(
+      'bird-beak',
+      { height: 0.26, diameterTop: 0, diameterBottom: 0.2, tessellation: 8 },
+      scene,
+    )
+    this.beak.rotation.x = Math.PI / 2 // point +Z
+    this.beak.position.set(0, 0.02, 0.36)
+    this.beak.material = beakMat
+    this.beak.parent = this.root
 
-    // Beak — forward-pointing cone (orange-yellow). Tip → +X (facing direction)
-    const beakGeo = new ConeGeometry(0.10, 0.24, 6)
-    const beakMat = new MeshToonMaterial({ color: 0xffb74d })
-    this.beak = new Mesh(beakGeo, beakMat)
-    this.beak.position.set(0.36, 0.02, 0)
-    this.beak.rotation.z = -Math.PI / 2
-    this.mesh.add(this.beak)
-
-    // Tail feathers — 3 small cones at the back (-X), fanned outward in Z.
-    // Grouped so we can show/hide as one unit (hidden in emoji/image modes).
-    this.tail = new Group()
-    const tailGeo = new ConeGeometry(0.07, 0.22, 5)
-    const tailMat = new MeshToonMaterial({ color: 0xff7043 })
-    for (const z of [-0.10, 0, 0.10]) {
-      const feather = new Mesh(tailGeo, tailMat)
-      feather.position.set(-0.32, 0.05, z)
-      feather.rotation.z = Math.PI / 2  // tip → -X
-      this.tail.add(feather)
+    // Tail — 3 small cones at the back (−Z).
+    this.tail = new TransformNode('bird-tail', scene)
+    this.tail.parent = this.root
+    const tailMat = new StandardMaterial('bird-tail', scene)
+    tailMat.diffuseColor = new Color3(1, 0.44, 0.26)
+    tailMat.specularColor = Color3.Black()
+    for (const x of [-0.12, 0, 0.12]) {
+      const feather = MeshBuilder.CreateCylinder(
+        'tail-feather',
+        { height: 0.24, diameterTop: 0, diameterBottom: 0.13, tessellation: 5 },
+        scene,
+      )
+      feather.rotation.x = -Math.PI / 2 // point −Z
+      feather.position.set(x, 0.05, -0.32)
+      feather.material = tailMat
+      feather.parent = this.tail
     }
-    this.mesh.add(this.tail)
 
-    // Pre-create ghost meshes (flap trail — BEAUTY-06, D-09)
-    const ghostGeo = new SphereGeometry(0.35, 8, 6)  // lower poly — they're ephemeral
+    // Ghost trail meshes.
     for (let i = 0; i < GHOST_COUNT; i++) {
-      const ghostMat = new MeshBasicMaterial({
-        color: 0xff7043,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-      })
-      const ghost = new Mesh(ghostGeo, ghostMat)
+      const g = MeshBuilder.CreateSphere(`bird-ghost-${i}`, { diameter: 0.7, segments: 6 }, scene)
       const s = GHOST_SCALES[i] ?? 0.85
-      ghost.scale.set(s, s * 0.65, s * 0.8)
-      ghost.visible = false
-      scene.add(ghost)
-      this.ghosts.push(ghost)
+      g.scaling.set(s, s * 0.65, s * 0.8)
+      const gm = new StandardMaterial(`ghost-mat-${i}`, scene)
+      gm.diffuseColor = new Color3(1, 0.44, 0.26)
+      gm.emissiveColor = new Color3(1, 0.44, 0.26)
+      gm.specularColor = Color3.Black()
+      gm.alpha = 0
+      gm.disableLighting = true
+      g.material = gm
+      g.isVisible = false
+      g.isPickable = false
+      this.ghosts.push(g)
     }
   }
 
-  /** Phase 17: register the toon (rim-lit) material as the body's "base" so we
-   * can restore it after the user clears their custom image. main.ts calls
-   * this after assigning bird.mesh.material = birdMaterial. */
-  setBaseMaterial(mat: Material): void {
+  /** Register the toon material as the body's base (geometric shapes). */
+  setBaseMaterial(mat: StandardMaterial): void {
     this.baseMaterial = mat
     if (this.currentImage === null && GEOMETRIC_SHAPES.has(this.currentShape)) {
-      this.mesh.material = mat
+      this.body.material = mat
     }
   }
 
-  /** Swap body to a different shape preset. Geometric shapes use the toon
-   * (rim-lit) base material; emoji shapes use a CanvasTexture-on-plane.
-   * No-op if a custom uploaded image is currently overriding the body. */
   setShape(shape: BirdShape): void {
     this.currentShape = shape
-    if (this.currentImage !== null) return  // uploaded image wins; will apply on clear
+    if (this.currentImage !== null) return // uploaded image wins
     this.applyShape()
   }
 
   private applyShape(): void {
-    this.mesh.geometry.dispose()
-    this.disposeImageResources()
-
+    this.rebuildBody(this.currentShape)
     if (GEOMETRIC_SHAPES.has(this.currentShape)) {
-      this.mesh.geometry = createShapeGeometry(this.currentShape)
-      this.mesh.scale.set(1, 0.65, 0.8)  // squash silhouette
-      if (this.baseMaterial !== null) this.mesh.material = this.baseMaterial
-      this.setBodyAccentsVisible(true)
+      this.disposeSkin()
+      if (this.baseMaterial !== null) this.body.material = this.baseMaterial
+      this.setAccentsVisible(true)
     } else {
-      // Emoji animal preset → flat plane with rendered emoji texture
       const emoji = EMOJI_FOR_SHAPE[this.currentShape]
-      if (emoji === undefined) return
-      this.mesh.geometry = new PlaneGeometry(0.9, 0.9)
-      this.mesh.scale.set(1, 1, 1)
-      const tex = createEmojiCanvasTexture(emoji, 256)
-      this.imageTexture = tex
-      this.imageMaterial = new MeshBasicMaterial({ map: tex, transparent: true })
-      this.mesh.material = this.imageMaterial
-      this.setBodyAccentsVisible(false)
+      if (emoji !== undefined) {
+        this.paintSkin((ctx, size) => {
+          ctx.font = `${size * 0.8}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(emoji, size / 2, size / 2)
+        })
+      }
+      this.setAccentsVisible(false)
     }
   }
 
-  /** Apply a user-uploaded image as the body texture. Pass null to clear
-   * (restores the currently selected shape). */
+  /** Apply a user-uploaded image as the body skin. null clears it. */
   setImage(dataURL: string | null): void {
+    // Bump the token so any in-flight image load from a prior call is ignored
+    // (rapid re-selection must not let a stale onload win).
+    const token = ++this.imageToken
     this.currentImage = dataURL
     if (dataURL === null) {
       this.applyShape()
       return
     }
-
-    // Image mode — flat plane with the uploaded image as a CanvasTexture.
-    // Why CanvasTexture (not TextureLoader): TextureLoader.load is async and
-    // returns a Texture with no image yet — on iOS Safari we observed the
-    // texture sometimes never finished uploading from a data URL. Drawing
-    // through HTMLImageElement → canvas → CanvasTexture is more robust.
-    this.mesh.geometry.dispose()
-    this.mesh.geometry = new PlaneGeometry(0.9, 0.9)
-    this.mesh.scale.set(1, 1, 1)
-    this.disposeImageResources()
-    this.setBodyAccentsVisible(false)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 256
-    const ctx = canvas.getContext('2d')
-    if (ctx === null) return
-    // Show a transparent placeholder until the image loads
-    const tex = new CanvasTexture(canvas)
-    tex.colorSpace = SRGBColorSpace
-    this.imageTexture = tex
-    this.imageMaterial = new MeshBasicMaterial({ map: tex, transparent: true })
-    this.mesh.material = this.imageMaterial
-
+    this.rebuildBody('sphere') // flat plane body regardless of shape
+    this.setAccentsVisible(false)
     const img = new Image()
     img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      tex.needsUpdate = true
+      if (token !== this.imageToken) return // superseded by a newer setImage
+      this.paintSkin((ctx, size) => ctx.drawImage(img, 0, 0, size, size))
     }
     img.onerror = () => {
-      // Leave the placeholder transparent if decode fails
+      if (token !== this.imageToken) return
+      // Decode failed — fall back to the currently selected geometric shape
+      // rather than leaving a blank flat body.
+      this.currentImage = null
+      this.applyShape()
     }
     img.src = dataURL
   }
 
-  private disposeImageResources(): void {
-    if (this.imageTexture !== null) {
-      this.imageTexture.dispose()
-      this.imageTexture = null
+  /** Recreate the body mesh for a shape. Plane for emoji/image, else solid. */
+  private rebuildBody(shape: BirdShape): void {
+    this.body.dispose()
+    const useFlat = !GEOMETRIC_SHAPES.has(shape) || this.currentImage !== null
+    if (useFlat) {
+      this.body = MeshBuilder.CreatePlane('bird-body', { width: 0.95, height: 0.95 }, this.scene)
+      this.body.scaling.set(1, 1, 1)
+    } else if (shape === 'cube') {
+      this.body = MeshBuilder.CreateBox('bird-body', { size: 0.58 }, this.scene)
+      this.body.scaling.set(1, 1, 1)
+    } else if (shape === 'pyramid') {
+      this.body = MeshBuilder.CreateCylinder(
+        'bird-body',
+        { height: 0.74, diameterTop: 0, diameterBottom: 0.7, tessellation: 4 },
+        this.scene,
+      )
+      this.body.scaling.set(1, 1, 1)
+    } else {
+      this.body = MeshBuilder.CreateSphere('bird-body', { diameter: 0.7, segments: 16 }, this.scene)
+      this.body.scaling.set(1, 0.65, 0.8)
     }
-    if (this.imageMaterial !== null) {
-      this.imageMaterial.dispose()
-      this.imageMaterial = null
-    }
+    this.body.parent = this.root
   }
 
-  private setBodyAccentsVisible(on: boolean): void {
-    this.leftWing.visible = on
-    this.rightWing.visible = on
-    this.leftEye.visible = on
-    this.rightEye.visible = on
-    this.beak.visible = on
-    this.tail.visible = on
+  /** Build (or refresh) the emoji/image skin material on a flat body. */
+  private paintSkin(draw: (ctx: CanvasRenderingContext2D, size: number) => void): void {
+    this.disposeSkin()
+    const size = 256
+    const tex = new DynamicTexture('bird-skin', { width: size, height: size }, this.scene, false)
+    tex.hasAlpha = true
+    const ctx = tex.getContext() as unknown as CanvasRenderingContext2D
+    ctx.clearRect(0, 0, size, size)
+    draw(ctx, size)
+    tex.update()
+    const mat = new StandardMaterial('bird-skin', this.scene)
+    mat.diffuseTexture = tex
+    mat.diffuseTexture.hasAlpha = true
+    mat.useAlphaFromDiffuseTexture = true
+    mat.emissiveColor = new Color3(1, 1, 1)
+    mat.disableLighting = true
+    mat.backFaceCulling = false
+    this.skinTexture = tex
+    this.skinMaterial = mat
+    this.body.material = mat
   }
 
-  // Called on each flap — snapshots current bird world position into next ghost slot
+  private disposeSkin(): void {
+    this.skinTexture?.dispose()
+    this.skinMaterial?.dispose()
+    this.skinTexture = null
+    this.skinMaterial = null
+  }
+
+  private setAccentsVisible(on: boolean): void {
+    this.leftWing.setEnabled(on)
+    this.rightWing.setEnabled(on)
+    this.leftEye.setEnabled(on)
+    this.rightEye.setEnabled(on)
+    this.beak.setEnabled(on)
+    this.tail.setEnabled(on)
+  }
+
+  /** Set body opacity (used for the invincibility blink). */
+  setAlpha(a: number): void {
+    const mat = this.body.material
+    if (mat) mat.alpha = a
+  }
+
+  // Flap trail — snapshot current bird position into the next ghost slot.
   snapshotGhost(): void {
     const idx = this.ghostHead % GHOST_COUNT
     const ghost = this.ghosts[idx]
     if (!ghost) return
-    ghost.position.copy(this.mesh.position)
-    ghost.material.opacity = GHOST_OPACITIES[idx] ?? 0.2
-    ghost.visible = true
+    ghost.position.copyFrom(this.root.position)
+    const mat = ghost.material as StandardMaterial
+    mat.alpha = GHOST_OPACITIES[idx] ?? 0.2
+    ghost.isVisible = true
     this.ghostHead = (this.ghostHead + 1) % GHOST_COUNT
   }
 
-  // Called every frame from main game loop to fade ghosts
   stepGhosts(dt: number): void {
     for (const ghost of this.ghosts) {
-      if (!ghost.visible) continue
-      ghost.material.opacity -= GHOST_FADE_SPEED * dt
-      if (ghost.material.opacity <= 0) {
-        ghost.material.opacity = 0
-        ghost.visible = false
+      if (!ghost.isVisible) continue
+      const mat = ghost.material as StandardMaterial
+      mat.alpha -= GHOST_FADE_SPEED * dt
+      if (mat.alpha <= 0) {
+        mat.alpha = 0
+        ghost.isVisible = false
       }
     }
   }
 
-  // Called on roundStarted — hide all ghosts and reset ring buffer
   resetGhosts(): void {
     this.ghostHead = 0
     for (const ghost of this.ghosts) {
-      ghost.visible = false
-      ghost.material.opacity = 0
+      ghost.isVisible = false
+      ;(ghost.material as StandardMaterial).alpha = 0
     }
-  }
-
-  getBoundingBox(): Box3 {
-    this.boundingBox.setFromObject(this.mesh)
-    return this.boundingBox
   }
 
   syncMesh(): void {
-    this.mesh.position.copy(this.position)
+    this.root.position.copyFrom(this.position)
   }
 
-  /** Snapshot the current logical position as the "previous" frame anchor.
-   * Called by PhysicsSystem at the START of each fixed step so render-time
-   * interpolation can lerp(prev, curr, alpha) for smooth motion on >60Hz. */
+  /** Snapshot the logical position as the "previous" frame anchor. */
   snapshotPosition(): void {
-    this.prevPosition.copy(this.position)
+    this.prevPosition.copyFrom(this.position)
   }
 
-  /** Lerp mesh.position from prevPosition → position by alpha ∈ [0,1).
-   * Caller is responsible for state-gating (only valid during 'playing' /
-   * 'dying' — title bob writes mesh.position directly). */
+  /** Lerp root.position from prevPosition → position by alpha ∈ [0,1). */
   interpolate(alpha: number): void {
-    this.mesh.position.lerpVectors(this.prevPosition, this.position, alpha)
+    Vector3.LerpToRef(this.prevPosition, this.position, alpha, this.root.position)
   }
 
-  dispose(scene: Scene): void {
-    scene.remove(this.mesh)
-    this.mesh.geometry.dispose()
-    this.mesh.material.dispose()
-    this.disposeImageResources()
-    // Wings + eyes + beak are children of mesh (removed above); dispose GPU resources
-    this.leftWing.geometry.dispose()
-    this.leftWing.material.dispose()
-    this.rightWing.geometry.dispose()
-    this.rightWing.material.dispose()
-    this.leftEye.geometry.dispose()
-    this.leftEye.material.dispose()
-    this.rightEye.geometry.dispose()  // shares geometry with leftEye, double dispose is safe
-    this.rightEye.material.dispose()  // shares material with leftEye, double dispose is safe
-    this.beak.geometry.dispose()
-    this.beak.material.dispose()
-    // Tail feathers share geometry + material — single dispose is enough
-    this.tail.traverse((obj) => {
-      if (obj instanceof Mesh) {
-        obj.geometry.dispose()
-        ;(obj.material as Material).dispose()
-      }
-    })
-    for (const ghost of this.ghosts) {
-      scene.remove(ghost)
-      ghost.geometry.dispose()
-      ghost.material.dispose()
+  dispose(): void {
+    this.disposeSkin()
+    this.root.dispose(false, true)
+    for (const g of this.ghosts) {
+      g.material?.dispose()
+      g.dispose()
     }
   }
-}
-
-function createShapeGeometry(shape: BirdShape): BufferGeometry {
-  switch (shape) {
-    case 'sphere':  return new SphereGeometry(0.35, 16, 10)
-    case 'cube':    return new BoxGeometry(0.55, 0.55, 0.55)
-    case 'pyramid': return new ConeGeometry(0.4, 0.7, 4)  // 4-sided cone = pyramid
-    default:        return new SphereGeometry(0.35, 16, 10)  // fallback for emoji shapes (caller uses plane)
-  }
-}
-
-/** Render a single emoji centered on a transparent square canvas, return as
- * a CanvasTexture for use as a Three.js material map. Synchronous — the canvas
- * exists immediately, so the GPU upload happens on next render. */
-function createEmojiCanvasTexture(emoji: string, size: number): CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
-  const ctx = canvas.getContext('2d')
-  if (ctx !== null) {
-    ctx.font = `${size * 0.85}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(emoji, size / 2, size / 2)
-  }
-  const tex = new CanvasTexture(canvas)
-  tex.colorSpace = SRGBColorSpace
-  return tex
 }

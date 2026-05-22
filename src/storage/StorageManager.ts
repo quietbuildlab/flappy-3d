@@ -1,6 +1,7 @@
 import type { DifficultyPreset } from '../constants'
 import { ALL_BIRD_SHAPES } from '../constants'
-import type { QualityTier } from '../render/createComposer'
+import type { QualityTier } from '../render/createPipeline'
+import type { CameraView } from '../render/cameraViews'
 
 const STORAGE_KEY = 'flappy-3d:v1'
 
@@ -35,6 +36,7 @@ export interface SettingsV5 extends SettingsV4 {
   volumeMaster: number           // Phase 20 v1.8 (AUDIO-07); 0..1 master gain
   volumeMusic: number            // Phase 20 v1.8 (AUDIO-07); 0..1 music sub-bus gain
   volumeSfx: number              // Phase 20 v1.8 (AUDIO-07); 0..1 sfx sub-bus gain
+  cameraView: CameraView         // Babylon rebuild; default 'chase'
 }
 
 export interface LeaderboardEntry {
@@ -70,6 +72,7 @@ const DEFAULT_SETTINGS_V5: SettingsV5 = {
   volumeMaster: 0.7,    // master gain — applied via Howler.volume() globally
   volumeMusic: 0.4,     // music sub-bus — applied to music Howl on top of master
   volumeSfx: 0.6,       // sfx sub-bus — applied to flap/score/death/whoosh on top of master
+  cameraView: 'chase',  // default camera framing (behind the bird)
 }
 
 interface SaveV1 {

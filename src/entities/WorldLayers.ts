@@ -1,157 +1,125 @@
-import {
-  Group,
-  Mesh,
-  PlaneGeometry,
-  SphereGeometry,
-  CylinderGeometry,
-  MeshToonMaterial,
-  Scene,
-  DoubleSide,
-} from 'three'
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { Scene } from '@babylonjs/core/scene'
+import { WORLD_FLOOR_Y } from '../constants'
 
-const GRASS_COLOR     = 0x3a7a3a
-const GRASS_DARK      = 0x2d5e2d
-const SHRUB_COLOR     = 0x4a8a4a
-const SHRUB_DARK      = 0x3a6f3a
-const FLOWER_COLOR_A  = 0xffc857
-const FLOWER_COLOR_B  = 0xee6b8c
+const TREE_FOLIAGE_COLOR = 0x2d5a27
+const TREE_TRUNK_COLOR = 0x4a3527
+const SHRUB_COLOR = 0x4a8a4a
 
-/** WorldLayers — adds foreground (close, fast parallax) + midground (mid-Z,
- * slower parallax) depth bands beyond what Background.ts ships (which is the
- * far backdrop: sky shader, mountains, trees).
- *
- * Foreground band sits at z = +1.5 so it's rendered IN FRONT of the
- * gameplay lane (z = 0). Positioned low (y = -3.2) so it only occupies the
- * bottom of the viewport, never covering the bird or pipes.
- *
- * Midground at z = -1.5 — between the gameplay lane and Background.ts's
- * trees (z = -4). Reads as a "second hedge" closer than the trees. */
+const TREE_COUNT = 12
+const Z_SPAN = 130
+const Z_START = -12
+const LANE_EDGE = 6.5
+
+/**
+ * Mid-distance scenery lining the corridor: trees and shrubs that scroll
+ * toward the camera and recycle, plus an occasional drifting balloon prop.
+ */
 export class WorldLayers {
-  private foreground: Group
-  private midground: Group
-  private balloon: Group       // depth-event prop (drifts behind play lane)
-  private balloonState: { active: boolean; cooldown: number } = { active: false, cooldown: 4 }
-  /** Called once when the balloon enters the visible band (Phase 20 AUDIO-08).
-   * Caller can hook in audio.playWhoosh() etc. No-op by default. */
+  private readonly trees: TransformNode[] = []
+  private readonly balloon: TransformNode
+  private balloonActive = false
+  private balloonCooldown = 4
+  /** Called once when the balloon re-enters the visible band. */
   onBalloonAppear: () => void = () => {}
 
   constructor(scene: Scene) {
-    this.foreground = this.createForeground()
-    this.midground = this.createMidground()
-    this.balloon = this.createBalloon()
-    scene.add(this.foreground)
-    scene.add(this.midground)
-    scene.add(this.balloon)
+    const trunkMat = new StandardMaterial('trunk-mat', scene)
+    trunkMat.diffuseColor = colorOf(TREE_TRUNK_COLOR)
+    trunkMat.specularColor = Color3.Black()
+    const foliageMat = new StandardMaterial('foliage-mat', scene)
+    foliageMat.diffuseColor = colorOf(TREE_FOLIAGE_COLOR)
+    foliageMat.specularColor = Color3.Black()
+    const shrubMat = new StandardMaterial('shrub-mat', scene)
+    shrubMat.diffuseColor = colorOf(SHRUB_COLOR)
+    shrubMat.specularColor = Color3.Black()
+
+    for (let i = 0; i < TREE_COUNT; i++) {
+      const tree = new TransformNode(`tree-${i}`, scene)
+      const trunk = MeshBuilder.CreateCylinder(
+        `trunk-${i}`, { height: 1.1, diameter: 0.3, tessellation: 6 }, scene,
+      )
+      trunk.material = trunkMat
+      trunk.position.y = 0.55
+      trunk.parent = tree
+      const foliage = MeshBuilder.CreateCylinder(
+        `foliage-${i}`, { height: 2, diameterTop: 0, diameterBottom: 1.4, tessellation: 7 }, scene,
+      )
+      foliage.material = foliageMat
+      foliage.position.y = 2
+      foliage.parent = tree
+      // Small shrub at the base for variety.
+      const shrub = MeshBuilder.CreateSphere(`shrub-${i}`, { diameter: 0.7, segments: 6 }, scene)
+      shrub.material = shrubMat
+      shrub.position.set(0.5, 0.25, 0.3)
+      shrub.parent = tree
+
+      const side = i % 2 === 0 ? -1 : 1
+      tree.position = new Vector3(
+        side * (LANE_EDGE + (i % 3) * 1.5),
+        WORLD_FLOOR_Y,
+        Z_START + (i / TREE_COUNT) * Z_SPAN,
+      )
+      this.trees.push(tree)
+    }
+
+    // Balloon depth-event prop.
+    this.balloon = new TransformNode('balloon', scene)
+    const balloonMat = new StandardMaterial('balloon-mat', scene)
+    balloonMat.diffuseColor = colorOf(0xee6b8c)
+    balloonMat.specularColor = Color3.Black()
+    const body = MeshBuilder.CreateSphere('balloon-body', { diameter: 1.1, segments: 10 }, scene)
+    body.scaling.set(0.85, 1, 0.85)
+    body.material = balloonMat
+    body.parent = this.balloon
+    const stringMat = new StandardMaterial('balloon-string', scene)
+    stringMat.diffuseColor = new Color3(0.1, 0.1, 0.1)
+    const str = MeshBuilder.CreateCylinder('balloon-string', { height: 1, diameter: 0.04 }, scene)
+    str.position.y = -0.8
+    str.material = stringMat
+    str.parent = this.balloon
+    this.balloon.setEnabled(false)
   }
 
-  /** Called from the scroll-system loop. Foreground scrolls fastest
-   * (closest to camera), midground slower. Depth-event balloon drifts left
-   * across the background (z = -3.5) on its own slow timer, then waits 8-15s
-   * before re-entering. */
+  /** Scroll scenery toward the camera; advance the balloon depth event. */
   scroll(dt: number, obstacleScrollSpeed: number): void {
-    this.foreground.position.x -= obstacleScrollSpeed * 0.85 * dt
-    this.midground.position.x -= obstacleScrollSpeed * 0.45 * dt
-    if (this.foreground.position.x < -16) this.foreground.position.x += 16
-    if (this.midground.position.x < -18) this.midground.position.x += 18
+    for (const tree of this.trees) {
+      tree.position.z -= obstacleScrollSpeed * 0.7 * dt
+      if (tree.position.z < Z_START) tree.position.z += Z_SPAN
+    }
 
-    // Depth event — balloon. Cooldown when off-screen.
-    if (this.balloonState.active) {
-      this.balloon.position.x -= 1.4 * dt  // independent drift speed; not tied to gameplay scroll
-      this.balloon.position.y += Math.sin(this.balloon.position.x * 0.4) * 0.003  // tiny float wobble
-      if (this.balloon.position.x < -10) {
-        this.balloonState.active = false
-        this.balloon.visible = false
-        this.balloonState.cooldown = 8 + Math.random() * 7  // 8-15s gap
+    if (this.balloonActive) {
+      this.balloon.position.z -= obstacleScrollSpeed * 0.5 * dt
+      this.balloon.position.y += Math.sin(this.balloon.position.z * 0.4) * 0.004
+      if (this.balloon.position.z < Z_START) {
+        this.balloonActive = false
+        this.balloon.setEnabled(false)
+        this.balloonCooldown = 8 + Math.random() * 7
       }
     } else {
-      this.balloonState.cooldown -= dt
-      if (this.balloonState.cooldown <= 0) {
-        this.balloonState.active = true
-        this.balloon.visible = true
-        this.balloon.position.set(10, 0.5 + Math.random() * 2.5, -3.5)
+      this.balloonCooldown -= dt
+      if (this.balloonCooldown <= 0) {
+        this.balloonActive = true
+        this.balloon.setEnabled(true)
+        this.balloon.position.set(
+          (Math.random() > 0.5 ? 1 : -1) * (4 + Math.random() * 3),
+          2 + Math.random() * 3,
+          Z_SPAN * 0.7,
+        )
         this.onBalloonAppear()
       }
     }
   }
+}
 
-  private createForeground(): Group {
-    const group = new Group()
-
-    // Grass band — long thin plane spanning the bottom of the viewport
-    const bandGeo = new PlaneGeometry(40, 1.2)
-    const bandMat = new MeshToonMaterial({ color: GRASS_COLOR, side: DoubleSide })
-    const band = new Mesh(bandGeo, bandMat)
-    band.position.set(0, -3.4, 1.5)
-    group.add(band)
-
-    // Darker grass tufts on top — small triangle-ish shapes via thin cylinders
-    const tuftGeo = new CylinderGeometry(0, 0.10, 0.3, 4)
-    const tuftMat = new MeshToonMaterial({ color: GRASS_DARK })
-    for (let i = 0; i < 14; i++) {
-      const tuft = new Mesh(tuftGeo, tuftMat)
-      tuft.position.set(-15 + i * 2.2, -2.85, 1.5 + (i % 2 === 0 ? 0.05 : -0.05))
-      group.add(tuft)
-    }
-
-    // A few wildflowers — tiny spheres in 2 colors, peeking up from the grass
-    const flowerGeo = new SphereGeometry(0.07, 8, 6)
-    const flowerMatA = new MeshToonMaterial({ color: FLOWER_COLOR_A })
-    const flowerMatB = new MeshToonMaterial({ color: FLOWER_COLOR_B })
-    for (let i = 0; i < 7; i++) {
-      const f = new Mesh(flowerGeo, i % 2 === 0 ? flowerMatA : flowerMatB)
-      f.position.set(-13 + i * 4.1, -2.78, 1.55)
-      group.add(f)
-    }
-
-    return group
-  }
-
-  private createBalloon(): Group {
-    const group = new Group()
-    // Round body — flattened sphere reads as a balloon
-    const balloonGeo = new SphereGeometry(0.35, 16, 12)
-    const balloonMat = new MeshToonMaterial({ color: 0xee6b8c })  // pink
-    const body = new Mesh(balloonGeo, balloonMat)
-    body.scale.set(0.85, 1.0, 0.85)
-    group.add(body)
-    // String — thin tall cylinder under the balloon
-    const stringGeo = new CylinderGeometry(0.012, 0.012, 0.6, 4)
-    const stringMat = new MeshToonMaterial({ color: 0x222222 })
-    const str = new Mesh(stringGeo, stringMat)
-    str.position.y = -0.5
-    group.add(str)
-
-    group.visible = false
-    group.position.set(10, 1, -3.5)
-    return group
-  }
-
-  private createMidground(): Group {
-    const group = new Group()
-
-    // Shrub clusters — group of 3-4 spheres at slightly different sizes, like
-    // a low hedge bush. Spaced so a few are visible at any time.
-    const shrubGeo = new SphereGeometry(0.35, 10, 8)
-    const shrubMat = new MeshToonMaterial({ color: SHRUB_COLOR })
-    const shrubMatDark = new MeshToonMaterial({ color: SHRUB_DARK })
-    const shrubXs = [-13, -8.5, -4, 0.5, 5, 9, 13.5]
-    for (const x of shrubXs) {
-      const cluster = new Group()
-      // 3-sphere cluster
-      const a = new Mesh(shrubGeo, shrubMat)
-      a.position.set(0, 0, 0)
-      a.scale.setScalar(1.0)
-      const b = new Mesh(shrubGeo, shrubMatDark)
-      b.position.set(0.32, -0.05, 0.10)
-      b.scale.setScalar(0.78)
-      const c = new Mesh(shrubGeo, shrubMat)
-      c.position.set(-0.30, -0.04, -0.05)
-      c.scale.setScalar(0.85)
-      cluster.add(a, b, c)
-      cluster.position.set(x, -3.05, -1.5)
-      group.add(cluster)
-    }
-
-    return group
-  }
+function colorOf(hex: number): Color3 {
+  return new Color3(
+    ((hex >> 16) & 0xff) / 255,
+    ((hex >> 8) & 0xff) / 255,
+    (hex & 0xff) / 255,
+  )
 }

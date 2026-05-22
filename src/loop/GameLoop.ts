@@ -1,4 +1,5 @@
-import { WebGLRenderer, Scene, PerspectiveCamera } from 'three'
+import type { Engine } from '@babylonjs/core/Engines/engine'
+import type { Scene } from '@babylonjs/core/scene'
 import { FIXED_DT, DT_CLAMP_MAX } from '../constants'
 
 interface UpdatableSystem {
@@ -8,46 +9,37 @@ interface UpdatableSystem {
 type Interpolator = (alpha: number) => void
 
 export class GameLoop {
-  private renderer: WebGLRenderer
+  private engine: Engine
   private scene: Scene
-  private camera: PerspectiveCamera
   private systems: UpdatableSystem[] = []
   private interpolators: Interpolator[] = []
   private accumulator = 0
   private lastTime = 0
-  private renderFn: () => void
 
-  constructor(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera) {
-    this.renderer = renderer
+  constructor(engine: Engine, scene: Scene) {
+    this.engine = engine
     this.scene = scene
-    this.camera = camera
-    this.renderFn = () => this.renderer.render(this.scene, this.camera)
   }
 
   add(system: UpdatableSystem): void {
     this.systems.push(system)
   }
 
-  /** Phase 18: register a per-frame interpolation hook that runs AFTER all
-   * fixed-step updates and BEFORE render. Receives `alpha = accumulator / FIXED_DT`
-   * in [0, 1) — the fractional progress toward the next fixed step. Use to
-   * lerp(prev, curr, alpha) for visually smooth motion on >60Hz displays. */
+  /** Register a per-frame interpolation hook that runs AFTER all fixed-step
+   * updates and BEFORE render. Receives `alpha = accumulator / FIXED_DT` in
+   * [0, 1) — the fractional progress toward the next fixed step. */
   addInterpolator(fn: Interpolator): void {
     this.interpolators.push(fn)
-  }
-
-  setRenderFn(fn: () => void): void {
-    this.renderFn = fn
   }
 
   start(): void {
     this.lastTime = 0
     this.accumulator = 0
-    this.renderer.setAnimationLoop((now: number) => this.tick(now))
+    this.engine.runRenderLoop(() => this.tick(performance.now()))
   }
 
   stop(): void {
-    this.renderer.setAnimationLoop(null)
+    this.engine.stopRenderLoop()
   }
 
   private tick(now: number): void {
@@ -67,6 +59,6 @@ export class GameLoop {
     const alpha = this.accumulator / FIXED_DT
     for (const interp of this.interpolators) interp(alpha)
 
-    this.renderFn()
+    this.scene.render()
   }
 }

@@ -3,7 +3,8 @@ import type { gameMachine } from '../machine/gameMachine'
 import type { ObjectPool } from '../pools/ObjectPool'
 import type { ObstaclePair } from '../entities/ObstaclePair'
 import type { StorageManager } from '../storage/StorageManager'
-import { OBSTACLE_SPAWN_X, GAP_CENTER_RANGE, PIPE_COLOR_CYCLE } from '../constants'
+import { OBSTACLE_SPAWN_Z, GAP_CENTER_RANGE, PIPE_COLOR_CYCLE } from '../constants'
+import { COLORBLIND_PIPE_COLOR } from '../render/toonMaterial'
 import { difficultyFrom } from './Difficulty'
 import type { DifficultyConfig } from './Difficulty'
 
@@ -46,8 +47,6 @@ export class ObstacleSpawner {
     this.colorblindMode = on
   }
 
-  // actor.send audit (Phase 5 D-08): this system is read-only (getSnapshot only).
-  // No actor.send guard required.
   step(dt: number): void {
     const state = this.actor.getSnapshot().value
     const isTitleDemo = state === 'title'
@@ -69,9 +68,12 @@ export class ObstacleSpawner {
       const pair = this.pool.acquire()
       if (pair === null) return
       const gapCenterY = (this.rng() * 2 - 1) * GAP_CENTER_RANGE
-      pair.reset(OBSTACLE_SPAWN_X, gapCenterY, difficulty.gapHeight)
-      // Color cycling (BEAUTY-08): skip when colorblind palette active (D-19)
-      if (!this.colorblindMode) {
+      pair.reset(OBSTACLE_SPAWN_Z, gapCenterY, difficulty.gapHeight)
+      // Always set an explicit colour so a pair never relies on whatever the
+      // cloned template happened to be. Colorblind mode → single safe colour.
+      if (this.colorblindMode) {
+        pair.setColor(COLORBLIND_PIPE_COLOR)
+      } else {
         const color = PIPE_COLOR_CYCLE[this.spawnIndex % PIPE_COLOR_CYCLE.length]
         if (color !== undefined) pair.setColor(color)
       }

@@ -14,18 +14,17 @@
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "@preact/preset-vite": "^2.10.5",
-    "@types/three": "^0.184.0",
     "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.10",
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
+    "@babylonjs/core": "^9.8.0",
     "@types/howler": "^2.2.12",
     "gsap": "^3.15.0",
     "howler": "^2.2.4",
     "preact": "^10.29.1",
-    "three": "^0.184.0",
     "xstate": "^5.20.1"
   }
 }

@@ -4,10 +4,10 @@ import type { ObjectPool } from '../pools/ObjectPool'
 import type { ObstaclePair } from '../entities/ObstaclePair'
 import type { Background } from '../entities/Background'
 import type { StorageManager } from '../storage/StorageManager'
-import { OBSTACLE_DESPAWN_X } from '../constants'
+import { OBSTACLE_DESPAWN_Z } from '../constants'
 import { difficultyFrom } from './Difficulty'
 
-const TITLE_DEMO_SCROLL_SPEED = 1.8  // world units/sec — visually pleasant, slower than gameplay
+const TITLE_DEMO_SCROLL_SPEED = 1.8  // world units/sec — slower, relaxed feel
 
 type GameActor = Actor<typeof gameMachine>
 
@@ -29,7 +29,6 @@ export class ScrollSystem {
     this.storage = storage
   }
 
-  // actor.send audit (Phase 5): read-only — no send calls
   step(dt: number): void {
     const state = this.actor.getSnapshot().value
     const isTitleDemo = state === 'title'
@@ -38,13 +37,13 @@ export class ScrollSystem {
     const score = this.actor.getSnapshot().context.score
     const preset = this.storage?.getSettings().difficulty ?? 'normal'
     const scrollSpeed = isTitleDemo
-      ? TITLE_DEMO_SCROLL_SPEED  // slower, more relaxed feel
+      ? TITLE_DEMO_SCROLL_SPEED
       : difficultyFrom(score, preset).scrollSpeed
 
     const toRelease: ObstaclePair[] = []
     this.pool.forEachActive((pair) => {
-      pair.group.position.x -= scrollSpeed * dt
-      if (pair.group.position.x < OBSTACLE_DESPAWN_X) {
+      pair.z -= scrollSpeed * dt
+      if (pair.z < OBSTACLE_DESPAWN_Z) {
         pair.hide()
         toRelease.push(pair)
       }

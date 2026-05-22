@@ -2,7 +2,7 @@ import type { Actor } from 'xstate'
 import type { gameMachine } from '../machine/gameMachine'
 import type { ObjectPool } from '../pools/ObjectPool'
 import type { ObstaclePair } from '../entities/ObstaclePair'
-import { BIRD_X } from '../constants'
+import { BIRD_Z } from '../constants'
 
 type GameActor = Actor<typeof gameMachine>
 
@@ -20,7 +20,7 @@ export class ScoreSystem {
     if (this.actor.getSnapshot().status !== 'active') return
 
     this.pool.forEachActive((pair) => {
-      if (pair.group.position.x < BIRD_X && !pair.passed) {
+      if (pair.z < BIRD_Z && !pair.passed) {
         pair.passed = true
         this.actor.send({ type: 'SCORE' })
       }

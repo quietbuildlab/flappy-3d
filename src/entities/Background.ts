@@ -1,153 +1,111 @@
-import {
-  Group,
-  Mesh,
-  PlaneGeometry,
-  ShaderMaterial,
-  BufferGeometry,
-  Float32BufferAttribute,
-  MeshBasicMaterial,
-  CylinderGeometry,
-  ConeGeometry,
-  Scene,
-} from 'three'
-import { SKY_KEYFRAMES, SKY_CYCLE_DURATION_S } from '../constants'
+import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { Scene } from '@babylonjs/core/scene'
+import { SKY_KEYFRAMES, SKY_CYCLE_DURATION_S, WORLD_FLOOR_Y } from '../constants'
 
 const MOUNTAIN_COLOR = 0x4a5568
-const TREE_FOLIAGE_COLOR = 0x2d5a27
-const TREE_TRUNK_COLOR = 0x4a3527
+// Earthy brown ground — deliberately not green so the green pipes (and trees)
+// read with strong contrast against it; gap visibility is core to Flappy.
+// Kept dark enough that the up-facing plane doesn't blow out under lighting.
+const GROUND_COLOR = 0x6f5a34
+const MOUNTAIN_COUNT = 7
+const MOUNTAIN_Z_SPAN = 140 // recycle window length in Z
+const MOUNTAIN_Z_START = -14
 
-const SKY_VERTEX = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`
-
-const SKY_FRAGMENT = `
-uniform vec3 uTopColor;
-uniform vec3 uBottomColor;
-varying vec2 vUv;
-void main() {
-  gl_FragColor = vec4(mix(uBottomColor, uTopColor, vUv.y), 1.0);
-}
-`
-
+/**
+ * Far backdrop for the chase-cam corridor: a long ground plane the bird
+ * flies over, a recycled row of distant mountains, and a day/night sky
+ * colour cycle applied to the scene clear colour.
+ */
 export class Background {
-  private skyMesh: Mesh<PlaneGeometry, ShaderMaterial>
-  private mountainGroup: Group
-  private treeGroup: Group
-  private cycleElapsed: number = 0
+  private readonly scene: Scene
+  private readonly mountains: Mesh[] = []
+  private cycleElapsed = 0
 
   constructor(scene: Scene) {
-    this.skyMesh = this.createSky()
-    this.mountainGroup = this.createMountains()
-    this.treeGroup = this.createTrees()
+    this.scene = scene
 
-    scene.add(this.skyMesh)
-    scene.add(this.mountainGroup)
-    scene.add(this.treeGroup)
+    // Ground — long plane stretching down the +Z corridor.
+    const ground = MeshBuilder.CreateGround(
+      'ground',
+      { width: 60, height: MOUNTAIN_Z_SPAN + 80, subdivisions: 1 },
+      scene,
+    )
+    ground.position.set(0, WORLD_FLOOR_Y, 50)
+    const groundMat = new StandardMaterial('ground-mat', scene)
+    groundMat.diffuseColor = colorOf(GROUND_COLOR)
+    groundMat.specularColor = Color3.Black()
+    ground.material = groundMat
+
+    // Distant mountains — large cones on either side of the lane.
+    const mountainMat = new StandardMaterial('mountain-mat', scene)
+    mountainMat.diffuseColor = colorOf(MOUNTAIN_COLOR)
+    mountainMat.specularColor = Color3.Black()
+    for (let i = 0; i < MOUNTAIN_COUNT; i++) {
+      const m = MeshBuilder.CreateCylinder(
+        `mountain-${i}`,
+        { height: 6 + (i % 3) * 2, diameterTop: 0, diameterBottom: 9, tessellation: 5 },
+        scene,
+      )
+      m.material = mountainMat
+      m.isPickable = false
+      const side = i % 2 === 0 ? -1 : 1
+      m.position = new Vector3(
+        side * (14 + (i % 3) * 4),
+        WORLD_FLOOR_Y + 2,
+        MOUNTAIN_Z_START + (i / MOUNTAIN_COUNT) * MOUNTAIN_Z_SPAN,
+      )
+      this.mountains.push(m)
+    }
+
+    this.resetSkyCycle()
   }
 
+  /** Scroll distant scenery toward the camera and recycle past the bird. */
   scroll(dt: number, obstacleScrollSpeed: number): void {
-    this.mountainGroup.position.x -= obstacleScrollSpeed * 0.25 * dt
-    this.treeGroup.position.x -= obstacleScrollSpeed * 0.6 * dt
-
-    if (this.mountainGroup.position.x < -20) this.mountainGroup.position.x += 20
-    if (this.treeGroup.position.x < -20) this.treeGroup.position.x += 20
+    const speed = obstacleScrollSpeed * 0.3
+    for (const m of this.mountains) {
+      m.position.z -= speed * dt
+      if (m.position.z < MOUNTAIN_Z_START) m.position.z += MOUNTAIN_Z_SPAN
+    }
   }
 
-  // ATMOS-03 / ATMOS-04: lerp sky shader colors over a continuous cycle.
-  // Skips when reduced-motion is active — sky holds whatever color it last had.
+  /** Lerp the sky (scene clear colour) over a continuous day/night cycle. */
   cycleSky(dt: number, isReducedMotion: boolean): void {
     if (isReducedMotion) return
     this.cycleElapsed = (this.cycleElapsed + dt) % SKY_CYCLE_DURATION_S
-    const segmentDuration = SKY_CYCLE_DURATION_S / SKY_KEYFRAMES.length
-    const idx = Math.floor(this.cycleElapsed / segmentDuration)
-    const t = (this.cycleElapsed % segmentDuration) / segmentDuration
+    const segment = SKY_CYCLE_DURATION_S / SKY_KEYFRAMES.length
+    const idx = Math.floor(this.cycleElapsed / segment)
+    const t = (this.cycleElapsed % segment) / segment
     const cur = SKY_KEYFRAMES[idx]!
     const nxt = SKY_KEYFRAMES[(idx + 1) % SKY_KEYFRAMES.length]!
-    this.skyMesh.material.uniforms.uTopColor!.value.lerpColors(cur.top, nxt.top, t)
-    this.skyMesh.material.uniforms.uBottomColor!.value.lerpColors(cur.bottom, nxt.bottom, t)
+    this.applySky(Color3.Lerp(cur.top, nxt.top, t))
   }
 
   resetSkyCycle(): void {
     this.cycleElapsed = 0
-    const k0 = SKY_KEYFRAMES[0]!
-    this.skyMesh.material.uniforms.uTopColor!.value.copy(k0.top)
-    this.skyMesh.material.uniforms.uBottomColor!.value.copy(k0.bottom)
+    this.applySky(SKY_KEYFRAMES[0]!.top)
   }
 
-  private createSky(): Mesh<PlaneGeometry, ShaderMaterial> {
-    const geometry = new PlaneGeometry(40, 30)
-    const k0 = SKY_KEYFRAMES[0]!
-    const material = new ShaderMaterial({
-      uniforms: {
-        uTopColor: { value: k0.top.clone() },
-        uBottomColor: { value: k0.bottom.clone() },
-      },
-      vertexShader: SKY_VERTEX,
-      fragmentShader: SKY_FRAGMENT,
-      depthWrite: false,
-    })
-    const mesh = new Mesh(geometry, material)
-    mesh.position.set(0, 0, -10)
-    return mesh
+  private applySky(c: Color3): void {
+    const clear = this.scene.clearColor
+    clear.r = c.r
+    clear.g = c.g
+    clear.b = c.b
   }
 
-  private createMountains(): Group {
-    const group = new Group()
-
-    const positions: number[] = []
-    const peakCount = 6
-    const baseY = -2.5
-    const peakWidth = 4.5
-    for (let i = 0; i < peakCount; i++) {
-      const cx = -15 + i * 6
-      const height = 2.5 + Math.random() * 1.5
-      positions.push(cx - peakWidth / 2, baseY, 0)
-      positions.push(cx, baseY + height, 0)
-      positions.push(cx + peakWidth / 2, baseY, 0)
-    }
-
-    const geometry = new BufferGeometry()
-    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-    geometry.computeVertexNormals()
-
-    const material = new MeshBasicMaterial({
-      color: MOUNTAIN_COLOR,
-      depthWrite: false,
-    })
-    const mesh = new Mesh(geometry, material)
-    mesh.position.z = -7
-    group.add(mesh)
-
-    return group
+  dispose(): void {
+    for (const m of this.mountains) m.dispose()
   }
+}
 
-  private createTrees(): Group {
-    const group = new Group()
-
-    const trunkGeometry = new CylinderGeometry(0.08, 0.08, 0.8, 5)
-    const foliageGeometry = new ConeGeometry(0.4, 1.5, 5)
-    const trunkMaterial = new MeshBasicMaterial({ color: TREE_TRUNK_COLOR })
-    const foliageMaterial = new MeshBasicMaterial({ color: TREE_FOLIAGE_COLOR })
-
-    const treeCount = 8
-    for (let i = 0; i < treeCount; i++) {
-      const x = -12 + i * 3.2
-      const yOffset = Math.random() * 0.3
-
-      const trunk = new Mesh(trunkGeometry, trunkMaterial)
-      trunk.position.set(x, -3.4 + yOffset, -4)
-
-      const foliage = new Mesh(foliageGeometry, foliageMaterial)
-      foliage.position.set(x, -2.3 + yOffset, -4)
-
-      group.add(trunk)
-      group.add(foliage)
-    }
-
-    return group
-  }
+function colorOf(hex: number): Color3 {
+  return new Color3(
+    ((hex >> 16) & 0xff) / 255,
+    ((hex >> 8) & 0xff) / 255,
+    (hex & 0xff) / 255,
+  )
 }

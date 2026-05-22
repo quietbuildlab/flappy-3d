@@ -5,7 +5,9 @@ import type { StorageManager, SettingsV5, BirdShape } from '../../storage/Storag
 import type { AudioManager } from '../../audio/AudioManager'
 import type { DifficultyPreset } from '../../constants'
 import { SHAPE_UNLOCK_THRESHOLDS } from '../../constants'
-import type { QualityTier } from '../../render/createComposer'
+import type { QualityTier } from '../../render/createPipeline'
+import type { CameraView } from '../../render/cameraViews'
+import { CAMERA_VIEW_ORDER, CAMERA_VIEW_LABELS } from '../../render/cameraViews'
 import { Button } from '../components/Button'
 import { Toggle } from '../components/Toggle'
 import { refreshReducedMotion } from '../../a11y/motion'
@@ -19,6 +21,7 @@ interface Props {
   onPaletteChange: (palette: 'default' | 'colorblind') => void
   onShapeChange: (shape: BirdShape) => void
   onImageChange: (image: string | null) => void
+  onCameraChange: (view: CameraView) => void
 }
 
 function Section({ title, children }: { title: string; children?: ComponentChildren }) {
@@ -31,7 +34,7 @@ function Section({ title, children }: { title: string; children?: ComponentChild
 }
 
 export function SettingsModal({
-  storage, audio, onClose, onPaletteChange, onShapeChange, onImageChange,
+  storage, audio, onClose, onPaletteChange, onShapeChange, onImageChange, onCameraChange,
 }: Props) {
   const [settings, setSettings] = useState<SettingsV5>(() => storage.getSettings())
   const [imageError, setImageError] = useState<string | null>(null)
@@ -64,6 +67,7 @@ export function SettingsModal({
     if (partial.palette !== undefined) onPaletteChange(partial.palette)
     if (partial.birdShape !== undefined) onShapeChange(partial.birdShape)
     if (partial.birdImage !== undefined) onImageChange(partial.birdImage)
+    if (partial.cameraView !== undefined) onCameraChange(partial.cameraView)
     // Phase 20 v1.8: live-apply sub-bus volumes
     if (partial.volumeMaster !== undefined) audio.setVolumeMaster(partial.volumeMaster)
     if (partial.volumeMusic !== undefined) audio.setVolumeMusic(partial.volumeMusic)
@@ -218,6 +222,17 @@ export function SettingsModal({
           h('div', { className: 'settings-picker', role: 'group', 'aria-label': 'Render quality' },
             (['auto', 'low', 'medium', 'high'] as const).map((q) =>
               pickerButton(settings.quality, q as QualityTier, q.charAt(0).toUpperCase() + q.slice(1), (id) => update({ quality: id })),
+            ),
+          ),
+        ),
+        h('div', {
+          className: 'settings-row settings-pickerrow',
+          title: 'Camera angle: Chase (behind the bird), Side (classic side-on), or Far (wide cinematic). Press C in-game to cycle.',
+        },
+          h('span', { className: 'settings-row-label' }, '🎥 Camera'),
+          h('div', { className: 'settings-picker', role: 'group', 'aria-label': 'Camera view' },
+            CAMERA_VIEW_ORDER.map((v) =>
+              pickerButton(settings.cameraView, v, CAMERA_VIEW_LABELS[v], (id) => update({ cameraView: id })),
             ),
           ),
         ),

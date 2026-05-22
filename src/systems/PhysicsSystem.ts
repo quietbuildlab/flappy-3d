@@ -22,20 +22,17 @@ export class PhysicsSystem {
     this.flapQueued = true
   }
 
-  // actor.send audit (Phase 5): read-only — no send calls
   step(dt: number): void {
     const state = this.actor.getSnapshot().value
 
     if (state === 'dying') {
-      this.bird.mesh.rotation.z += 1.5 * dt
+      this.bird.root.rotation.z += 1.5 * dt
     } else if (state === 'title') {
-      this.bird.mesh.rotation.z = 0
+      this.bird.root.rotation.z = 0
     } else if (state === 'playing') {
       // Velocity-based pitch: nose-up when rising, nose-down when falling.
-      // Lerp toward target so the rotation reads as a smooth banking motion
-      // rather than snapping every frame.
       const targetZ = Math.max(-0.6, Math.min(0.45, -this.bird.velocity.y * 0.06))
-      this.bird.mesh.rotation.z += (targetZ - this.bird.mesh.rotation.z) * 0.12
+      this.bird.root.rotation.z += (targetZ - this.bird.root.rotation.z) * 0.12
     }
 
     if (state !== 'playing' && state !== 'dying') {
@@ -43,7 +40,7 @@ export class PhysicsSystem {
       return
     }
 
-    // Snapshot prev position for render interpolation (Phase 18 #3 v1.6)
+    // Snapshot prev position for render interpolation.
     this.bird.snapshotPosition()
 
     if (this.flapQueued) {
@@ -55,7 +52,6 @@ export class PhysicsSystem {
     const gravityMul = DIFFICULTY_MULTIPLIERS[preset].gravity
     this.bird.velocity.y += GRAVITY * gravityMul * dt
 
-    // Scale max fall speed too so the gentler gravity actually shows
     const maxFall = MAX_FALL_SPEED * gravityMul
     if (this.bird.velocity.y < maxFall) {
       this.bird.velocity.y = maxFall
@@ -64,14 +60,12 @@ export class PhysicsSystem {
     this.bird.position.y += this.bird.velocity.y * dt
 
     // Clamp at ceiling — flapping into the sky shouldn't kill (only the floor does).
-    // Original Flappy Bird treated the top of the screen as a soft cap, not a death.
     if (this.bird.position.y > WORLD_CEILING_Y) {
       this.bird.position.y = WORLD_CEILING_Y
       this.bird.velocity.y = 0
     }
 
     // syncMesh is intentionally NOT called here — the GameLoop interpolator
-    // (in main.ts) lerps mesh.position from prevPosition→position by alpha
-    // each render frame, giving smoother motion on >60Hz screens.
+    // lerps root.position from prevPosition→position by alpha each render frame.
   }
 }

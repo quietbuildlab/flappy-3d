@@ -11,8 +11,10 @@ import { HUD } from './screens/HUD'
 import { PauseScreen } from './screens/PauseScreen'
 import { GameOverScreen } from './screens/GameOverScreen'
 import { SettingsModal } from './screens/SettingsModal'
-import { Vector3 } from 'three'
-import type { Camera } from 'three'
+import { Vector3, Matrix } from '@babylonjs/core/Maths/math.vector'
+import { Viewport } from '@babylonjs/core/Maths/math.viewport'
+import type { Scene } from '@babylonjs/core/scene'
+import type { CameraView } from '../render/cameraViews'
 import type { TimerSystem } from '../systems/TimerSystem'
 
 type GameActor = Actor<typeof gameMachine>
@@ -35,18 +37,23 @@ class ScorePopupPool {
     }
   }
 
-  spawn(worldPos: { x: number; y: number; z: number }, camera: Camera): void {
+  spawn(worldPos: { x: number; y: number; z: number }, scene: Scene): void {
     const div = this.pool.find((d) => !d.classList.contains('animating'))
     if (!div) return
 
-    const vec = new Vector3(worldPos.x, worldPos.y, worldPos.z)
-    vec.project(camera)
     const rect = this.container.getBoundingClientRect()
-    const x = ((vec.x + 1) / 2) * rect.width
-    const y = ((-vec.y + 1) / 2) * rect.height
+    // Babylon world → screen projection. scene.getTransformMatrix() carries
+    // the active camera's view×projection; passing the container's CSS size
+    // as the viewport yields CSS-pixel coords directly.
+    const screen = Vector3.Project(
+      new Vector3(worldPos.x, worldPos.y, worldPos.z),
+      Matrix.Identity(),
+      scene.getTransformMatrix(),
+      new Viewport(0, 0, rect.width, rect.height),
+    )
 
-    div.style.left = `${x}px`
-    div.style.top = `${y}px`
+    div.style.left = `${screen.x}px`
+    div.style.top = `${screen.y}px`
     div.classList.add('animating')
 
     const onEnd = () => {
@@ -64,6 +71,7 @@ interface AppProps {
   onPaletteChange: (palette: 'default' | 'colorblind') => void
   onShapeChange: (shape: BirdShape) => void
   onImageChange: (image: string | null) => void
+  onCameraChange: (view: CameraView) => void
   timerSystem: TimerSystem | null
 }
 
@@ -74,10 +82,11 @@ export class UIBridge {
   private onPaletteChange: (palette: 'default' | 'colorblind') => void
   private onShapeChange: (shape: BirdShape) => void
   private onImageChange: (image: string | null) => void
+  private onCameraChange: (view: CameraView) => void
   private mountEl: HTMLElement | null = null
   private popupPool: ScorePopupPool | null = null
   private milestoneFlash: HTMLDivElement | null = null
-  private camera: Camera | null = null
+  private scene: Scene | null = null
   private timerSystem: TimerSystem | null = null
 
   constructor(
@@ -85,10 +94,11 @@ export class UIBridge {
     audio: AudioManager,
     storage: StorageManager,
     onPaletteChange: (palette: 'default' | 'colorblind') => void,
-    camera?: Camera,
+    scene?: Scene,
     timerSystem?: TimerSystem,
     onShapeChange?: (shape: BirdShape) => void,
     onImageChange?: (image: string | null) => void,
+    onCameraChange?: (view: CameraView) => void,
   ) {
     this.actor = actor
     this.audio = audio
@@ -96,7 +106,8 @@ export class UIBridge {
     this.onPaletteChange = onPaletteChange
     this.onShapeChange = onShapeChange ?? (() => {})
     this.onImageChange = onImageChange ?? (() => {})
-    this.camera = camera ?? null
+    this.onCameraChange = onCameraChange ?? (() => {})
+    this.scene = scene ?? null
     this.timerSystem = timerSystem ?? null
   }
 
@@ -119,6 +130,7 @@ export class UIBridge {
         onPaletteChange: this.onPaletteChange,
         onShapeChange: this.onShapeChange,
         onImageChange: this.onImageChange,
+        onCameraChange: this.onCameraChange,
         timerSystem: this.timerSystem,
       }),
       this.mountEl,
@@ -126,8 +138,8 @@ export class UIBridge {
   }
 
   spawnScorePopup(worldPos: { x: number; y: number; z: number }): void {
-    if (!this.popupPool || !this.camera) return
-    this.popupPool.spawn(worldPos, this.camera)
+    if (!this.popupPool || !this.scene) return
+    this.popupPool.spawn(worldPos, this.scene)
   }
 
   triggerMilestoneFlash(): void {
@@ -137,16 +149,13 @@ export class UIBridge {
     setTimeout(() => flash.classList.remove('active'), 200)
   }
 
-  /** Phase 18 PROG-03: show a "🔓 Unlocked: X" toast for ~3s. Caller is
-   * responsible for state-gating (typically called once on game over when
-   * the score crossed a threshold not previously in unlocks). */
+  /** Phase 18 PROG-03: show a "🔓 Unlocked: X" toast for ~3s. */
   showUnlockToast(label: string): void {
     if (!this.mountEl) return
     const toast = document.createElement('div')
     toast.className = 'unlock-toast'
     toast.textContent = `🔓 Unlocked: ${label}`
     this.mountEl.appendChild(toast)
-    // Pop the .active class on the next frame so the CSS transition runs
     requestAnimationFrame(() => toast.classList.add('active'))
     setTimeout(() => {
       toast.classList.remove('active')
@@ -174,8 +183,6 @@ function App(props: AppProps) {
     let prevValue = props.actor.getSnapshot().value as string
     const sub = props.actor.subscribe((s) => {
       const nextValue = s.value as string
-      // Snapshot best before round starts; gameMachine writes best synchronously on gameOver
-      // so we must capture here, not in the gameOver branch
       if (nextValue === 'playing' && prevValue !== 'playing') {
         priorBestRef.current = props.storage.getBestScore()
       }
@@ -194,7 +201,6 @@ function App(props: AppProps) {
     return () => sub.unsubscribe()
   }, [])
 
-  // Detect when browser fires beforeinstallprompt so install CTA can appear
   useEffect(() => {
     const checkPrompt = () => setShowInstall(!!window.deferredInstallPrompt)
     window.addEventListener('beforeinstallprompt', checkPrompt)
@@ -206,7 +212,6 @@ function App(props: AppProps) {
     props.storage.setLastMode(newMode)
     setMode(newMode)
     setLeaderboard(props.storage.getLeaderboard(newMode))
-    // Phase 20 AUDIO-06: notify audio of new track preference (no-op fallback)
     props.audio.setMusicTrack(newMode)
   }
 
@@ -237,8 +242,6 @@ function App(props: AppProps) {
       storage: props.storage,
     }),
     h(HUD, {
-      // v1.9: HUD now also visible during 'respawning' so the player can
-      // see their remaining lives + bird position update during invincibility.
       active: value === 'playing' || value === 'dying' || value === 'respawning',
       actor: props.actor,
       score: snap.context.score,
@@ -267,6 +270,7 @@ function App(props: AppProps) {
           onPaletteChange: props.onPaletteChange,
           onShapeChange: props.onShapeChange,
           onImageChange: props.onImageChange,
+          onCameraChange: props.onCameraChange,
         })
       : null,
   )
