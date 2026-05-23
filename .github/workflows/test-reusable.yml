@@ -1,0 +1,6 @@
+name: Test reusable
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    uses: quiet-build/.github/.github/workflows/hello.yml@main
