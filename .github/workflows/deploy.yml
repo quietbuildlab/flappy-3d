@@ -1,4 +1,8 @@
-name: Deploy (GitHub Pages + Cloudflare Pages)
+name: Deploy
+
+# Thin caller — the actual build + deploy logic lives in the org's reusable
+# workflow at quiet-build/.github so improvements roll out to every project
+# at once. See that repo's README for available inputs.
 
 on:
   push:
@@ -6,171 +10,10 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
-# Phase 19 OPS-01: opt all JS-based actions onto Node 24 ahead of the
-# Sep 16 2026 deadline that removes Node 20 from runners. Avoids per-action
-# version bumps that may not yet be released across the entire dependency
-# tree (actions/checkout, setup-node, configure-pages, etc.).
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        # --legacy-peer-deps: vite-plugin-pwa@1.2.0 peer range excludes Vite 8
-        # but the plugin works correctly with Vite 8 (verified locally + in build).
-        # Remove this flag once vite-plugin-pwa publishes a version with vite@8 in peers.
-        run: npm ci --legacy-peer-deps
-
-      - name: Build
-        run: npm run build
-
-      - name: Bundle size check (PERF-01 gate)
-        run: bash scripts/bundle-check.sh
-
-      - name: Upload stats.html artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bundle-stats
-          path: dist/stats.html
-          if-no-files-found: warn
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  lighthouse:
-    runs-on: ubuntu-latest
-    needs: deploy
-    env:
-      page_url: ${{ needs.deploy.outputs.page_url }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Lighthouse CLI
-        # Phase 19 OPS-03: pin reviewed 2026-05-03. Decision: KEEP v11 pin.
-        # Lighthouse v12+ removed the consolidated `pwa` category — the
-        # underlying audits (installable, splashscreen, themed-omnibox,
-        # maskable-icon, etc.) still exist but are scattered across other
-        # categories with no aggregate score. To migrate we'd need to:
-        #   (a) call individual audits via --only-audits + threshold each,
-        #   (b) reconstruct an aggregate PWA score from those, or
-        #   (c) drop the PWA gate entirely.
-        # All three add real complexity for ~zero gameplay value. v11.7.1
-        # is in maintenance support and runs cleanly on Node 22. Revisit
-        # only if v11 is removed from npm or stops resolving.
-        run: npm install -g lighthouse@^11.7.1
-
-      - name: Run Lighthouse PWA audit
-        run: |
-          PAGE_URL="${page_url}"
-          if [ -z "$PAGE_URL" ]; then
-            # Construct URL from repo owner/name if output unavailable
-            PAGE_URL="https://${{ github.repository_owner }}.github.io/flappy-3d/"
-          fi
-          echo "Auditing: $PAGE_URL"
-          lighthouse "$PAGE_URL" \
-            --only-categories=pwa \
-            --output=json \
-            --output-path=lighthouse-pwa.json \
-            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
-            --quiet || true
-
-      - name: "Check PWA score (gate: >= 0.90)"
-        run: |
-          if [ ! -f lighthouse-pwa.json ]; then
-            echo "ERROR: lighthouse-pwa.json not found. Lighthouse may have failed to run."
-            exit 1
-          fi
-          SCORE=$(cat lighthouse-pwa.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['categories']['pwa']['score'])")
-          echo "Lighthouse PWA score: $SCORE"
-          # Compare as float using python3 (avoids bc locale issues)
-          PASS=$(python3 -c "print('yes' if float('$SCORE') >= 0.9 else 'no')")
-          if [ "$PASS" != "yes" ]; then
-            echo "FAIL: PWA score $SCORE < 0.90 (PWA-05 requirement)"
-            exit 1
-          fi
-          echo "PASS: PWA score $SCORE >= 0.90"
-
-      - name: Upload Lighthouse report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lighthouse-report
-          path: lighthouse-pwa.json
-
-  # Cloudflare Pages — runs in parallel with the GH Pages chain.
-  # Builds with VITE_BASE=/ so the bundle is served from the CF Pages root
-  # (https://flappy-3d.pages.dev) rather than the /flappy-3d/ subpath.
-  # Requires repo secrets:
-  #   - CLOUDFLARE_API_TOKEN  (Pages:Edit token from CF dashboard)
-  #   - CLOUDFLARE_ACCOUNT_ID (visible in CF dashboard right sidebar)
-  # See docs/DEPLOY-CLOUDFLARE.md for one-time setup.
-  deploy-cf:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Build for Cloudflare (root base)
-        env:
-          VITE_BASE: '/'
-        run: npm run build
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=flappy-3d --branch=main
+    uses: quiet-build/.github/.github/workflows/deploy-static-site.yml@main
+    with:
+      bundle-check-command: bash scripts/bundle-check.sh
+      lighthouse-pwa-gate: 0.9
+    secrets: inherit
