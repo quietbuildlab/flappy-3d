@@ -15,7 +15,7 @@ jobs:
     uses: quiet-build/.github/.github/workflows/deploy-static-site.yml@main
     with:
       bundle-check-command: bash scripts/bundle-check.sh
-      lighthouse-pwa-gate: 0.9
+      lighthouse-pwa-gate: "0.9"
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
