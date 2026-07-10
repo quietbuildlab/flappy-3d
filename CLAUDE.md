@@ -21,8 +21,10 @@ project's measured success target is **"feels palpably more crafted than [`guigu
 | How is the code organized? | `.planning/research/ARCHITECTURE.md` |
 | What pitfalls to avoid? | `.planning/research/PITFALLS.md` |
 | Tight overview of all of the above? | `.planning/research/SUMMARY.md` |
+| What does each source/config area own? | `SOURCE.md` |
 
 **Always re-read `.planning/STATE.md` at the start of any session** — it points to the active phase.
+When changing source or configuration boundaries, update `SOURCE.md` in the same change so future agents can quickly find the relevant owner files.
 
 ## Locked Decisions (do NOT relitigate without explicit user instruction)
 
