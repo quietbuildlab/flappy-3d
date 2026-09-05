@@ -1,5 +1,7 @@
 # Source Companion
 
+CI dependency builds: `pnpm-workspace.yaml` permits `workerd` for Wrangler's Cloudflare deployment runtime.
+
 This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in sync when changing source/config boundaries.
 
 ## Runtime Entry And Configuration
