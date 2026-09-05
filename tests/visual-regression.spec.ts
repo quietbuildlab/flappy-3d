@@ -8,7 +8,7 @@ import { test, expect, devices } from '@playwright/test'
 //
 // Baselines live in tests/visual-regression.spec.ts-snapshots/.
 // To accept new layout intentionally:
-//   npx playwright test tests/visual-regression.spec.ts --update-snapshots
+//   pnpm exec playwright test tests/visual-regression.spec.ts --update-snapshots
 
 const URL = 'https://quietbuildlab.github.io/flappy-3d/'
 

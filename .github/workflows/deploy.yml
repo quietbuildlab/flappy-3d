@@ -18,6 +18,8 @@ jobs:
       id-token: write
     uses: quiet-build/.github/.github/workflows/deploy-static-site.yml@main
     with:
+      install-command: "corepack enable && pnpm install --frozen-lockfile"
+      build-command: pnpm build
       pages-deploy: true
       bundle-check-command: bash scripts/bundle-check.sh
       lighthouse-pwa-gate: "0.9"

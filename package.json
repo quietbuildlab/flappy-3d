@@ -2,13 +2,14 @@
   "name": "flappy-3d",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@11.25.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "generate-icons": "node scripts/generate-icons.cjs",
-    "bundle-check": "npm run build && bash scripts/bundle-check.sh",
+    "bundle-check": "pnpm build && bash scripts/bundle-check.sh",
     "test:uat": "playwright test"
   },
   "devDependencies": {

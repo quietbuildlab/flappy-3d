@@ -14,4 +14,4 @@
 ## Workflow
 6. **Reconcile the docs as part of the release, not after.** `README.md` (Three.js/GitHub Pages) and `.planning/STATE.md` (ends at Phase 14) both predate the Babylon rebuild. Fold the doc reconciliation into the v1.0.0 cut so the shipped docs match the shipped code.
 
-7. **Keep the bundle-check as a hard gate.** With only ~79KB of headroom under the 600KB budget, wire `npm run bundle-check` into CI as a blocking step so a barrel import can't silently regress the tree-shaking.
+7. **Keep the bundle-check as a hard gate.** With only ~79KB of headroom under the 600KB budget, wire `pnpm bundle-check` into CI as a blocking step so a barrel import can't silently regress the tree-shaking.

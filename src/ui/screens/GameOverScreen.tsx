@@ -46,34 +46,36 @@ export function GameOverScreen({ active, actor, score, priorBest, leaderboard, m
         }
       },
     },
-    h('h2', { className: 'gameover-heading' }, 'Game Over'),
-    h('div', {
-      className: 'gameover-score',
-      'aria-live': 'polite',
-      'aria-atomic': 'true',
-    }, score),
-    isNewBest ? h(NewBestBadge, null) : h('p', { className: 'gameover-pb' }, 'Best: ' + priorBest),
-    h('div', { style: 'margin: 8px 0; width: 100%; max-width: 300px;' },
-      h(LeaderboardList, { entries: leaderboard, max: 5 }),
-    ),
-    h('p', { className: 'gameover-cta' }, 'Tap to restart'),
-    h(
-      'div',
-      { className: 'btn-row' },
-      h(Button, { onClick: (e: MouseEvent) => { e.stopPropagation(); actor.send({ type: 'RESTART' }) } }, 'Restart'),
-      h(Button, { onClick: (e: MouseEvent) => { e.stopPropagation(); actor.send({ type: 'START' }) } }, 'Back to Title'),
-      mode === 'daily' ? h(Button, {
-        onClick: (e: MouseEvent) => {
-          e.stopPropagation()
-          const text = `Daily ${todayDate()}: ${score} 🐦`
-          if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).then(() => {
-              setCopyLabel('Copied!')
-              setTimeout(() => setCopyLabel('Share'), 2000)
-            }).catch(() => { /* silent */ })
-          }
-        },
-      }, copyLabel) : null,
+    h('div', { className: 'result-card' },
+      h('h2', { className: 'gameover-heading' }, 'Game Over'),
+      h('div', {
+        className: 'gameover-score',
+        'aria-live': 'polite',
+        'aria-atomic': 'true',
+      }, score),
+      isNewBest ? h(NewBestBadge, null) : h('p', { className: 'gameover-pb' }, 'Best: ' + priorBest),
+      h('div', { style: 'margin: 8px 0; width: 100%; max-width: 300px;' },
+        h(LeaderboardList, { entries: leaderboard, max: 5 }),
+      ),
+      h('p', { className: 'gameover-cta' }, 'Tap to restart'),
+      h(
+        'div',
+        { className: 'btn-row' },
+        h(Button, { onClick: (e: MouseEvent) => { e.stopPropagation(); actor.send({ type: 'RESTART' }) } }, 'Restart'),
+        h(Button, { onClick: (e: MouseEvent) => { e.stopPropagation(); actor.send({ type: 'START' }) } }, 'Back to Title'),
+        mode === 'daily' ? h(Button, {
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            const text = `Daily ${todayDate()}: ${score} 🐦`
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(text).then(() => {
+                setCopyLabel('Copied!')
+                setTimeout(() => setCopyLabel('Share'), 2000)
+              }).catch(() => { /* silent */ })
+            }
+          },
+        }, copyLabel) : null,
+      ),
     ),
   )
 }

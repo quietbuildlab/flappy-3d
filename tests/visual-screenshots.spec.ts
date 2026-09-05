@@ -7,7 +7,7 @@ import * as path from 'path'
 // after layout / world-layer changes.
 //
 // To regenerate:
-//   npx playwright test tests/visual-screenshots.spec.ts
+//   pnpm exec playwright test tests/visual-screenshots.spec.ts
 // Output: tests/screenshots/{viewport}-{state}.png
 
 const URL = 'https://quietbuildlab.github.io/flappy-3d/'

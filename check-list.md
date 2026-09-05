@@ -16,7 +16,7 @@
 ## Delegate to Claude (automatable)
 - [ ] Reconcile `README.md`: Three.js → Babylon.js, GitHub Pages → Cloudflare, fix the live URL
 - [ ] Update `.planning/STATE.md` (stale — ends at Phase 14 / 2026-05-02, never records the Babylon rebuild)
-- [ ] Run `npm run build` + `npm run bundle-check` (≤600KB budget)
+- [ ] Run `pnpm build` + `pnpm bundle-check` (≤600KB budget)
 - [ ] Run the Playwright UAT suite as a regression gate
 - [ ] Reopen/close-out Phase 5 items in the planning docs once the human checks pass
 

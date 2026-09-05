@@ -32,10 +32,10 @@ Current baseline (Phase 3): **194.49 KB gzip** — 55.5 KB headroom.
 ### Check the bundle size
 
 ```bash
-npm run bundle-check
+pnpm bundle-check
 ```
 
-This runs `npm run build` and then `scripts/bundle-check.sh`, which:
+This runs `pnpm build` and then `scripts/bundle-check.sh`, which:
 - Gzips all `dist/assets/*.js` files
 - Compares total gzip bytes against the 256,000-byte (250 KB) limit
 - Exits non-zero if the limit is exceeded
@@ -60,7 +60,7 @@ This is a **manual test** — no automated gate exists for frame rate on real ha
 
 1. **Build and serve:**
    ```bash
-   npm run build && npx serve -s dist -l 5000
+   pnpm build && pnpm exec serve -s dist -l 5000
    ```
    Or deploy to GitHub Pages and test the live URL.
 
@@ -89,7 +89,7 @@ Run these checks before tagging a release. Each maps to a Phase 5 Success Criter
 
 ### SC-1: Memory stability (PERF-05)
 
-1. Open https://quietbuildlab.github.io/flappy-3d/ in Chrome desktop (DEV build: `npm run dev`)
+1. Open https://quietbuildlab.github.io/flappy-3d/ in Chrome desktop (DEV build: `pnpm dev`)
 2. Open DevTools → Console
 3. Play 10 death + restart cycles
 4. Observe `[mem probe] round=N geometries=X textures=Y` log lines (DEV build only)
@@ -147,8 +147,8 @@ The game is deployed to **GitHub Pages** at:
 
 Push to `main` triggers `.github/workflows/deploy.yml` which:
 
-1. Installs dependencies (`npm ci`)
-2. Builds the production bundle (`npm run build`)
+1. Installs dependencies (`pnpm install --frozen-lockfile`)
+2. Builds the production bundle (`pnpm build`)
 3. **Bundle size gate**: fails if JS gzip > 250 KB (`scripts/bundle-check.sh`)
 4. Uploads `dist/` as a GitHub Pages artifact
 5. Deploys to `https://<owner>.github.io/flappy-3d/`
@@ -157,8 +157,8 @@ Push to `main` triggers `.github/workflows/deploy.yml` which:
 ### Manual deploy (local preview)
 
 ```bash
-npm run build
-npx serve -s dist -l 5000
+pnpm build
+pnpm exec serve -s dist -l 5000
 # Open http://localhost:5000/flappy-3d/
 ```
 
@@ -174,7 +174,7 @@ If migrating from GitHub Pages to Cloudflare Pages:
 1. Change `vite.config.ts`: `base: '/flappy-3d/'` → `base: '/'`
 2. Re-audit `dist/manifest.webmanifest` for `start_url`/`scope` — they will change to `/`
 3. Delete `.github/workflows/deploy.yml`
-4. Connect repo to Cloudflare Pages dashboard (auto-builds on push, same `npm run build` command, output: `dist/`)
+4. Connect repo to Cloudflare Pages dashboard (auto-builds on push, same `pnpm build` command, output: `dist/`)
 5. No application code changes required.
 
 ---

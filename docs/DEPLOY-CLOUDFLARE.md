@@ -66,12 +66,12 @@ Follow the CNAME instructions. Cloudflare auto-provisions a TLS cert.
 
 ## Local development
 
-`npm run dev` works as before. The base path defaults to `/flappy-3d/`
+`pnpm dev` works as before. The base path defaults to `/flappy-3d/`
 which matches the dev server at `http://localhost:5173/flappy-3d/`.
 
 To preview the CF-style root build locally:
 ```bash
-VITE_BASE=/ npm run build && npx serve dist
+VITE_BASE=/ pnpm build && pnpm exec serve dist
 ```
 
 ## Troubleshooting

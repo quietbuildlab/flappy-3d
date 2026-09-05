@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bundle size gate: fail CI if gzip JS bundle exceeds 600 KB.
-# Usage: npm run build && bash scripts/bundle-check.sh
+# Usage: pnpm build && bash scripts/bundle-check.sh
 # Budget raised 250 KB → 600 KB on the 2026-05-21 Babylon.js rebuild
 # (Babylon is heavier than Three.js; see the rebuild design doc).
 
@@ -10,7 +10,7 @@ DIST_DIR="${1:-dist}"
 BUDGET_BYTES=$((600 * 1024))  # 614400
 
 if [ ! -d "$DIST_DIR/assets" ]; then
-  echo "ERROR: $DIST_DIR/assets not found. Run npm run build first."
+  echo "ERROR: $DIST_DIR/assets not found. Run pnpm build first."
   exit 1
 fi
 
