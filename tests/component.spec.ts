@@ -68,6 +68,7 @@ test('plays, pauses, restarts, isolates host keys and saves, loads remote audio 
   await expect(views.getByRole('button', { name: 'far', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await game.getByRole('button', { name: 'Close settings' }).click()
   await game.locator('.title-heading').click()
+  await page.keyboard.press('Space')
   await expect(game.locator('.hud-screen.active')).toBeVisible()
   await expect.poll(() => page.evaluate(() => (window as any).sounds.size)).toBeGreaterThan(0)
   await page.keyboard.press('Space')
@@ -77,9 +78,20 @@ test('plays, pauses, restarts, isolates host keys and saves, loads remote audio 
   for (const key of ['Space', 'c', 'Enter', 'Escape']) await page.keyboard.press(key)
   await expect(game.locator('.pause-screen.active')).toBeVisible()
   await game.getByRole('button', { name: 'Resume', exact: true }).click()
+  // Keep flying while checking focus loss: the HUD also remains visible
+  // during dying, when PAUSE deliberately cannot revive a finished round.
+  await page.keyboard.press('Space')
   await expect(game.locator('.hud-screen.active')).toBeVisible()
   await page.locator('#host-text').click()
-  await expect(game.locator('.pause-screen.active')).toBeVisible()
+  try {
+    await expect(game.locator('.pause-screen.active')).toBeVisible()
+  } catch (error) {
+    console.error('Focus-loss state:', await game.evaluate(el => ({
+      activeScreens: [...el.shadowRoot!.querySelectorAll('.active')].map(node => node.className),
+      focused: document.activeElement?.outerHTML,
+    })))
+    throw error
+  }
   await game.getByRole('button', { name: 'Resume', exact: true }).click()
   await expect(game.locator('.gameover-screen.active')).toBeVisible({ timeout: 20_000 })
   const rounds = await page.evaluate(() => (window as any).gameEvents.filter((e: any) => e.name === 'pma-round-ended'))
