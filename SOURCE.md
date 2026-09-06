@@ -12,6 +12,7 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 - `src/constants.ts` contains cross-system tuning values. Prefer named constants here over hidden literals across systems.
 - `index.html` defines the standalone document; `src/style.css` and `src/ui/styles.css` are injected into the owned game root and use container dimensions.
 - `vite.config.ts`, `tsconfig.json`, `playwright.config.ts`, `package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml` define build, test, dependency, and approved install-script behavior.
+- `functions/_middleware.ts` redirects only the exact legacy `flappy.playminiarcade.com` host to the fixed main-site game route. Its exact `/sw.js` response is a no-store retirement worker: it activates immediately, claims clients, unregisters itself and reloads same-origin client URLs so the network redirect can run. It does not delete caches or storage. Pages, preview and local hosts pass through, preserving the standalone PWA there.
 - `scripts/` contains verification and asset scripts. Keep scripts runnable from pnpm commands when they gate releases or CI.
 
 ## Game Loop And State
