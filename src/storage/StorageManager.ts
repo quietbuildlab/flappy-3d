@@ -70,7 +70,7 @@ const DEFAULT_SETTINGS_V4: SettingsV4 = {
 const DEFAULT_SETTINGS_V5: SettingsV5 = {
   ...DEFAULT_SETTINGS_V4,
   unlocks: ['sphere'],  // fresh install — only sphere unlocked at start (v1.8)
-  volumeMaster: 0.7,    // master gain — applied via Howler.volume() globally
+  volumeMaster: 0.7,    // master gain — applied to this session's audio only
   volumeMusic: 0.4,     // music sub-bus — applied to music Howl on top of master
   volumeSfx: 0.6,       // sfx sub-bus — applied to flap/score/death/whoosh on top of master
   cameraView: 'side',
@@ -112,9 +112,13 @@ interface SaveV5 extends Omit<SaveV4, 'schemaVersion' | 'settings'> {
 }
 
 export class StorageManager {
+  private key: string
+
+  constructor(key = STORAGE_KEY) { this.key = key }
+
   private load(): SaveV5 {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw = localStorage.getItem(this.key)
       if (raw === null) return this.defaults()
       const parsed = JSON.parse(raw) as SaveV1 | SaveV2 | SaveV3 | SaveV4 | SaveV5
       // Existing users (any prior schema) get ALL_BIRD_SHAPES grandfathered —
@@ -169,7 +173,7 @@ export class StorageManager {
 
   private save(data: SaveV5): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      localStorage.setItem(this.key, JSON.stringify(data))
     } catch {
       // Quota exceeded or disabled — silent fail (game still playable)
     }

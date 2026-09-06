@@ -11,6 +11,15 @@ const BASE = process.env.VITE_BASE ?? '/flappy-3d/'
 
 export default defineConfig({
   base: BASE,
+  preview: { cors: true },
+  build: {
+    rollupOptions: {
+      input: { main: 'index.html', component: 'src/component.ts' },
+      output: {
+        entryFileNames: (chunk) => chunk.name === 'component' ? 'component.js' : 'assets/[name]-[hash].js',
+      },
+    },
+  },
   plugins: [
     preact(),
     VitePWA({

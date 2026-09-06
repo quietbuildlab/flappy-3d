@@ -38,6 +38,7 @@ export function SettingsModal({
 }: Props) {
   const [settings, setSettings] = useState<SettingsV5>(() => storage.getSettings())
   const [imageError, setImageError] = useState<string | null>(null)
+  const alive = useRef(true)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,6 +52,7 @@ export function SettingsModal({
     }
     el?.addEventListener('cancel', handleCancel)
     return () => {
+      alive.current = false
       el?.removeEventListener('cancel', handleCancel)
       if (el?.open) el.close()
     }
@@ -91,11 +93,13 @@ export function SettingsModal({
     }
     try {
       const bitmap = await createImageBitmap(file)
+      if (!alive.current) { bitmap.close(); return }
       const canvas = document.createElement('canvas')
       canvas.width = 256
       canvas.height = 256
       const ctx = canvas.getContext('2d')
       if (ctx === null) {
+        bitmap.close()
         setImageError("Couldn't read the image. Try another file.")
         return
       }
@@ -111,6 +115,7 @@ export function SettingsModal({
       }
       update({ birdImage: resized })
     } catch {
+      if (!alive.current) return
       setImageError("Couldn't decode the image. Try another file.")
     } finally {
       target.value = ''

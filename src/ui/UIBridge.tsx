@@ -65,6 +65,7 @@ class ScorePopupPool {
 }
 
 interface AppProps {
+  standalone: boolean
   actor: GameActor
   audio: AudioManager
   storage: StorageManager
@@ -76,6 +77,8 @@ interface AppProps {
 }
 
 export class UIBridge {
+  private timers = new Set<ReturnType<typeof setTimeout>>()
+  private frames = new Set<number>()
   private actor: GameActor
   private audio: AudioManager
   private storage: StorageManager
@@ -111,9 +114,8 @@ export class UIBridge {
     this.timerSystem = timerSystem ?? null
   }
 
-  mount(): void {
-    this.mountEl = document.getElementById('ui-root')
-    if (!this.mountEl) throw new Error('#ui-root not found in DOM')
+  mount(element: HTMLElement, standalone: boolean): void {
+    this.mountEl = element
 
     this.popupPool = new ScorePopupPool(this.mountEl)
 
@@ -125,6 +127,7 @@ export class UIBridge {
     render(
       h(App, {
         actor: this.actor,
+        standalone,
         audio: this.audio,
         storage: this.storage,
         onPaletteChange: this.onPaletteChange,
@@ -146,7 +149,7 @@ export class UIBridge {
     const flash = this.milestoneFlash
     if (!flash) return
     flash.classList.add('active')
-    setTimeout(() => flash.classList.remove('active'), 200)
+    this.later(() => flash.classList.remove('active'), 200)
   }
 
   /** Phase 18 PROG-03: show a "🔓 Unlocked: X" toast for ~3s. */
@@ -156,15 +159,29 @@ export class UIBridge {
     toast.className = 'unlock-toast'
     toast.textContent = `🔓 Unlocked: ${label}`
     this.mountEl.appendChild(toast)
-    requestAnimationFrame(() => toast.classList.add('active'))
-    setTimeout(() => {
+    const frame = requestAnimationFrame(() => { this.frames.delete(frame); toast.classList.add('active') })
+    this.frames.add(frame)
+    this.later(() => {
       toast.classList.remove('active')
-      setTimeout(() => toast.remove(), 250)
+      this.later(() => toast.remove(), 250)
     }, 3000)
   }
 
+  private later(callback: () => void, ms: number): void {
+    const id = setTimeout(() => { this.timers.delete(id); callback() }, ms)
+    this.timers.add(id)
+  }
+
   dispose(): void {
-    if (this.mountEl) render(null, this.mountEl)
+    this.timers.forEach(clearTimeout)
+    this.frames.forEach(cancelAnimationFrame)
+    if (this.mountEl) {
+      render(null, this.mountEl)
+      this.mountEl.replaceChildren()
+    }
+    this.mountEl = null
+    this.popupPool = null
+    this.milestoneFlash = null
   }
 }
 
@@ -202,6 +219,7 @@ function App(props: AppProps) {
   }, [])
 
   useEffect(() => {
+    if (!props.standalone) return
     const checkPrompt = () => setShowInstall(!!window.deferredInstallPrompt)
     window.addEventListener('beforeinstallprompt', checkPrompt)
     return () => window.removeEventListener('beforeinstallprompt', checkPrompt)

@@ -1,5 +1,4 @@
 import { h } from 'preact'
-import { useEffect } from 'preact/hooks'
 import type { Actor } from 'xstate'
 import type { gameMachine } from '../../machine/gameMachine'
 import { Button } from '../components/Button'
@@ -12,17 +11,6 @@ interface Props {
 }
 
 export function PauseScreen({ active, actor }: Props) {
-  useEffect(() => {
-    const ac = new AbortController()
-    const handleKey = (e: KeyboardEvent) => {
-      if (!active) return
-      if (e.key === 'Escape') {
-        actor.send({ type: 'RESUME' })
-      }
-    }
-    document.addEventListener('keydown', handleKey, { signal: ac.signal })
-    return () => ac.abort()
-  }, [active, actor])
 
   return h(
     'div',

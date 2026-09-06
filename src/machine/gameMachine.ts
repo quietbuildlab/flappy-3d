@@ -1,7 +1,6 @@
 // CRITICAL: Zero Three.js imports — machine context holds only primitive values.
 
 import { setup, assign, emit } from 'xstate'
-import { StorageManager } from '../storage/StorageManager'
 
 export type GameMode = 'endless' | 'timeAttack' | 'daily'
 
@@ -43,10 +42,6 @@ export type GameEmitted =
   | { type: 'roundStarted' }
   | { type: 'lifeLost'; livesRemaining: number }
   | { type: 'lifeGained'; livesRemaining: number }
-
-// StorageManager instance used by the gameOver entry action.
-// Singleton at module level — pure TS, no Three.js dependency.
-const storage = new StorageManager()
 
 export const gameMachine = setup({
   types: {
@@ -164,7 +159,6 @@ export const gameMachine = setup({
         assign({
           bestScore: ({ context }) => {
             if (context.score > context.bestScore) {
-              storage.setBestScore(context.score)
               return context.score
             }
             return context.bestScore
@@ -203,4 +197,3 @@ export const gameMachine = setup({
     },
   },
 })
-

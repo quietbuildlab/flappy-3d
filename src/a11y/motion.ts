@@ -1,19 +1,19 @@
 import type { StorageManager } from '../storage/StorageManager'
 
-let cachedReduceMotion: boolean | null = null
+const cachedReduceMotion = new WeakMap<StorageManager, boolean>()
 const listeners: Array<(reduce: boolean) => void> = []
 
 export function prefersReducedMotion(storage: StorageManager): boolean {
-  if (cachedReduceMotion !== null) return cachedReduceMotion
+  const cached = cachedReduceMotion.get(storage)
+  if (cached !== undefined) return cached
   const setting = storage.getSettings().reduceMotion
-  if (setting === 'on') cachedReduceMotion = true
-  else if (setting === 'off') cachedReduceMotion = false
-  else cachedReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  return cachedReduceMotion
+  const reduce = setting === 'on' || (setting === 'auto' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  cachedReduceMotion.set(storage, reduce)
+  return reduce
 }
 
 export function refreshReducedMotion(storage: StorageManager): void {
-  cachedReduceMotion = null
+  cachedReduceMotion.delete(storage)
   const v = prefersReducedMotion(storage)
   for (const cb of listeners) cb(v)
 }

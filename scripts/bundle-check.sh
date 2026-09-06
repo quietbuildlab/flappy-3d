@@ -15,6 +15,9 @@ if [ ! -d "$DIST_DIR/assets" ]; then
 fi
 
 JS_FILES=("$DIST_DIR"/assets/*.js)
+if [ -f "$DIST_DIR/component.js" ]; then
+  JS_FILES+=("$DIST_DIR/component.js")
+fi
 if [ ${#JS_FILES[@]} -eq 0 ]; then
   echo "ERROR: No JS files found in $DIST_DIR/assets/"
   exit 1

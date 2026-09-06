@@ -1,5 +1,5 @@
 import { h } from 'preact'
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Actor } from 'xstate'
 import type { gameMachine, GameMode } from '../../machine/gameMachine'
 import type { LeaderboardEntry } from '../../storage/StorageManager'
@@ -20,20 +20,11 @@ interface Props {
 }
 
 export function GameOverScreen({ active, actor, score, priorBest, leaderboard, mode }: Props) {
+  const alive = useRef(true)
+  const copyTimer = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => { alive.current = false; clearTimeout(copyTimer.current) }, [])
   const isNewBest = score > 0 && score > priorBest
   const [copyLabel, setCopyLabel] = useState<'Share' | 'Copied!'>('Share')
-
-  useEffect(() => {
-    const ac = new AbortController()
-    const handleKey = (e: KeyboardEvent) => {
-      if (!active) return
-      if (e.key === 'Escape' || e.key === 'Enter') {
-        actor.send({ type: 'RESTART' })
-      }
-    }
-    document.addEventListener('keydown', handleKey, { signal: ac.signal })
-    return () => ac.abort()
-  }, [active, actor])
 
   return h(
     'div',
@@ -41,7 +32,7 @@ export function GameOverScreen({ active, actor, score, priorBest, leaderboard, m
       className: 'screen gameover-screen' + (active ? ' active' : ''),
       onClick: (e: MouseEvent) => {
         const target = e.target as HTMLElement
-        if (target.tagName !== 'BUTTON') {
+        if (!target.closest('button, input, select, a')) {
           actor.send({ type: 'RESTART' })
         }
       },
@@ -69,8 +60,9 @@ export function GameOverScreen({ active, actor, score, priorBest, leaderboard, m
             const text = `Daily ${todayDate()}: ${score} 🐦`
             if (navigator.clipboard) {
               navigator.clipboard.writeText(text).then(() => {
+                if (!alive.current) return
                 setCopyLabel('Copied!')
-                setTimeout(() => setCopyLabel('Share'), 2000)
+                copyTimer.current = setTimeout(() => setCopyLabel('Share'), 2000)
               }).catch(() => { /* silent */ })
             }
           },

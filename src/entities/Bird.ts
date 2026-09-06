@@ -44,6 +44,7 @@ export class Bird {
   private currentShape: BirdShape = 'sphere'
   private currentImage: string | null = null
   private imageToken = 0
+  private pendingImage: HTMLImageElement | null = null
   private baseMaterial: StandardMaterial | null = null
   private skinMaterial: StandardMaterial | null = null
   private skinTexture: DynamicTexture | null = null
@@ -171,6 +172,7 @@ export class Bird {
 
   /** Apply a user-uploaded image as the body skin. null clears it. */
   setImage(dataURL: string | null): void {
+    this.cancelImage()
     // Bump the token so any in-flight image load from a prior call is ignored
     // (rapid re-selection must not let a stale onload win).
     const token = ++this.imageToken
@@ -182,6 +184,7 @@ export class Bird {
     this.rebuildBody('sphere') // flat plane body regardless of shape
     this.setAccentsVisible(false)
     const img = new Image()
+    this.pendingImage = img
     img.onload = () => {
       if (token !== this.imageToken) return // superseded by a newer setImage
       this.paintSkin((ctx, size) => ctx.drawImage(img, 0, 0, size, size))
@@ -312,11 +315,22 @@ export class Bird {
   }
 
   dispose(): void {
+    this.cancelImage()
     this.disposeSkin()
     this.root.dispose(false, true)
     for (const g of this.ghosts) {
       g.material?.dispose()
       g.dispose()
+    }
+  }
+
+  private cancelImage(): void {
+    this.imageToken++
+    if (this.pendingImage) {
+      this.pendingImage.onload = null
+      this.pendingImage.onerror = null
+      this.pendingImage.src = ''
+      this.pendingImage = null
     }
   }
 }

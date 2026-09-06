@@ -28,6 +28,7 @@ const logoLetters = LOGO_TEXT.split('')
 
 export function TitleScreen({ active, actor, leaderboard, onSettings, onInstall, showInstall, mode, onModeChange, storage }: Props) {
   const hasAnimated = useRef(false)
+  const heading = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     // One-shot: skip if already animated this session (e.g. back-to-title from gameOver)
@@ -37,10 +38,10 @@ export function TitleScreen({ active, actor, leaderboard, onSettings, onInstall,
 
     hasAnimated.current = true
 
-    const spans = document.querySelectorAll('.title-heading .title-letter')
-    if (spans.length === 0) return
+    const spans = heading.current?.querySelectorAll('.title-letter')
+    if (!spans?.length) return
 
-    gsap.from(spans, {
+    const tween = gsap.from(spans, {
       opacity: 0,
       y: 10,
       duration: 0.35,
@@ -48,17 +49,9 @@ export function TitleScreen({ active, actor, leaderboard, onSettings, onInstall,
       ease: 'power2.out',
       clearProps: 'opacity,transform',
     })
+    return () => { tween.revert() }
   }, [])
 
-  useEffect(() => {
-    const ac = new AbortController()
-    const handleKey = (e: KeyboardEvent) => {
-      if (!active) return
-      if (e.key === 'Enter') actor.send({ type: 'START' })
-    }
-    document.addEventListener('keydown', handleKey, { signal: ac.signal })
-    return () => ac.abort()
-  }, [active, actor])
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -69,7 +62,7 @@ export function TitleScreen({ active, actor, leaderboard, onSettings, onInstall,
       onClick: (e: MouseEvent) => {
         // Only trigger START if click is not on a button
         const target = e.target as HTMLElement
-        if (target.tagName !== 'BUTTON') {
+        if (!target.closest('button, input, select, a')) {
           actor.send({ type: 'START' })
         }
       },
@@ -83,7 +76,7 @@ export function TitleScreen({ active, actor, leaderboard, onSettings, onInstall,
       },
       '⚙️',
     ),
-    h('h1', { className: 'title-heading' },
+    h('h1', { ref: heading, className: 'title-heading' },
       ...logoLetters.map((ch, i) =>
         h('span', { key: i, className: 'title-letter' },
           ch === ' ' ? ' ' : ch,

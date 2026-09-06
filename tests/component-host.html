@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flappy component acceptance host</title>
+<style>body { margin: 12px; font-family: sans-serif } #slot { width: min(900px, 100%); height: 650px } pma-flappy { display: block; width: 100%; height: 100% } #slot:fullscreen { width: 100%; height: 100% }</style>
+<label>Host text <input id="host-text"></label>
+<button id="fullscreen">Fullscreen</button>
+<div id="slot"><pma-flappy></pma-flappy></div>
+<script type="module">
+  window.gameEvents = []
+  for (const name of ['pma-ready', 'pma-error', 'pma-round-ended']) {
+    document.addEventListener(name, e => window.gameEvents.push({ name, detail: e.detail, bubbles: e.bubbles, composed: e.composed }))
+  }
+  document.querySelector('#fullscreen').onclick = () => document.querySelector('#slot').requestFullscreen()
+  import('http://127.0.0.1:5205/flappy-3d/component.js').catch(e => { window.moduleError = String(e) })
+</script>
+</html>

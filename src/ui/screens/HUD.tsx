@@ -31,11 +31,12 @@ export function HUD({ active, actor: _actor, score, lives, onPause, mode, timerS
   const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    let frame = 0
     if (score !== displayScore) {
       setDisplayScore(score)
       setPopping(false)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
           setPopping(true)
           if (popTimer.current !== null) clearTimeout(popTimer.current)
           popTimer.current = setTimeout(() => setPopping(false), 280)
@@ -43,6 +44,7 @@ export function HUD({ active, actor: _actor, score, lives, onPause, mode, timerS
       })
     }
     return () => {
+      cancelAnimationFrame(frame)
       if (popTimer.current !== null) clearTimeout(popTimer.current)
     }
   }, [score])

@@ -4,7 +4,7 @@ h2 {
 }
 
 /* ── Theme tokens ── */
-:root {
+.flappy-root {
   --paper: #f5f2e8;
   --paper-soft: #fffaf0;
   --forest: #214f3b;
@@ -17,7 +17,7 @@ h2 {
 }
 
 #ui-root {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -148,7 +148,7 @@ h2 {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: clamp(40px, 8vw, 96px);
+  font-size: clamp(40px, 8cqw, 96px);
   font-weight: 900;
   padding: 8px 14px;
   border: 1px solid rgba(255,255,255,0.65);
@@ -236,8 +236,8 @@ h2 {
   /* No backdrop-filter: full clarity on the 3D scene behind. */
   color: white;
   gap: 24px;
-  padding-top: 12vh;          /* logo sits in upper third */
-  padding-bottom: 12vh;       /* mode picker + leaderboard in lower third — */
+  padding-top: 12cqh;          /* logo sits in upper third */
+  padding-bottom: 12cqh;       /* mode picker + leaderboard in lower third — */
   justify-content: flex-start; /* (overrides .screen flex centering)        */
 }
 /* Ground strip — solid foreground band at the bottom edge so the bird +
@@ -246,12 +246,12 @@ h2 {
   content: '';
   position: absolute;
   inset: auto 0 0 0;
-  height: 6vh;
+  height: 6cqh;
   background: linear-gradient(180deg, rgba(40,80,40,0.0), rgba(40,80,40,0.55));
   pointer-events: none;
 }
 .title-heading {
-  font-size: clamp(2.5rem, 10vw, 5rem);
+  font-size: clamp(2.5rem, 10cqw, 5rem);
   font-weight: 900;
   padding: 14px 24px 16px;
   border: 1px solid rgba(255,255,255,0.75);
@@ -268,7 +268,7 @@ h2 {
    centered viewport space, not a fixed world offset. */
 .title-bird-zone {
   flex: 1 1 auto;
-  min-height: 24vh;
+  min-height: 24cqh;
   pointer-events: none;
 }
 .title-cta {
@@ -341,7 +341,7 @@ h2 {
   color: var(--forest);
 }
 .gameover-score {
-  font-size: clamp(3rem, 12vw, 6rem);
+  font-size: clamp(3rem, 12cqw, 6rem);
   font-weight: 900;
   line-height: 1;
   color: var(--rust);
@@ -387,7 +387,9 @@ dialog.settings-modal {
   border-radius: 22px;
   padding: 24px;
   max-width: 360px;
-  width: 90vw;
+  width: min(90cqw, 90vw);
+  max-height: min(90cqh, 90dvh);
+  overflow-y: auto;
   background: rgba(245,242,232,0.98);
   backdrop-filter: blur(16px);
   color: var(--cocoa);
@@ -487,8 +489,8 @@ dialog.settings-modal::backdrop {
 
 /* Phase 18 PROG-03 — first-unlock toast (3s pop-in/out at top center) */
 .unlock-toast {
-  position: fixed;
-  top: 12vh;
+  position: absolute;
+  top: 12cqh;
   left: 50%;
   transform: translate(-50%, -20px);
   background: var(--paper);
@@ -693,7 +695,7 @@ dialog.settings-modal::backdrop {
 
 /* ── Milestone screen flash ── */
 .milestone-flash {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   background: rgba(255, 209, 102, 0.4);
@@ -706,10 +708,10 @@ dialog.settings-modal::backdrop {
   transition: opacity 50ms ease-in;
 }
 
-@media (max-width: 520px) {
+@container (max-width: 520px) {
   .title-screen { gap: 14px; padding-inline: 14px; }
   .title-heading { padding: 11px 16px 13px; border-radius: 20px; }
-  .title-bird-zone { min-height: 18vh; }
+  .title-bird-zone { min-height: 18cqh; }
   .hud-score { top: 14px; padding: 7px 12px; }
   .hud-hearts { top: 68px; left: 10px; padding: 7px 9px; font-size: 1.05rem; }
   #ui-root .hud-pause-btn { top: 12px; right: 10px; }
