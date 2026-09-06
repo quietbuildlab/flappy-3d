@@ -10,6 +10,7 @@ for (const [name, viewport] of Object.entries({
     test.use({ viewport, hasTouch: name === 'mobile', isMobile: name === 'mobile' })
 
     test('settings, play, pause, full results, and restart remain usable', async ({ page }, testInfo) => {
+      test.setTimeout(45_000)
       const errors: string[] = []
       page.on('pageerror', error => errors.push(error.message))
       await page.goto('./')

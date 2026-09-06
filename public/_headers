@@ -1,3 +1,6 @@
+/component.js
+  Cache-Control: public, no-cache, must-revalidate
+
 /*
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=0, must-revalidate
