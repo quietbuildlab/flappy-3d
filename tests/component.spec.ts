@@ -214,17 +214,24 @@ test('custom image renders and mode/settings survive a clean reconnect', async (
 })
 
 test('a setup failure disposes the already-created engine before retry', async ({ page }) => {
+  const diagnostics: string[] = []
+  page.on('console', message => { if (message.type() === 'error') diagnostics.push(message.text()) })
   await page.addInitScript(() => {
     const observer = window.ResizeObserver
+    ;(window as any).setupFaults = 0
     ;(window as any).restoreResize = () => { window.ResizeObserver = observer }
-    window.ResizeObserver = class { constructor() { throw new Error('Injected resize setup failure') } } as any
+    window.ResizeObserver = class { constructor() { (window as any).setupFaults++; throw new Error('Injected resize setup failure') } } as any
   })
   await page.goto('/')
-  await expect.poll(() => page.evaluate(() => (window as any).gameEvents[0]?.detail.message)).toBe('Injected resize setup failure')
+  await expect.poll(() => page.evaluate(() => (window as any).gameEvents)).toEqual([{ name: 'pma-error', detail: { gameId: 'flappy', message: 'Unable to start Flappy. Please try again.' }, bubbles: true, composed: true }])
+  expect(await page.evaluate(() => (window as any).setupFaults)).toBe(1)
+  expect(diagnostics.some(message => message.includes('Injected resize setup failure'))).toBe(true)
+  await expect(page.locator('pma-flappy canvas')).toHaveCount(0)
   await page.evaluate(() => {
     ;(window as any).restoreResize()
     const el = document.querySelector('pma-flappy')!
     el.remove(); document.querySelector('#slot')!.append(el)
   })
   await expect(page.locator('pma-flappy .title-screen.active')).toBeVisible()
+  expect(await page.evaluate(() => (window as any).gameEvents.filter((event: any) => event.name === 'pma-ready'))).toHaveLength(1)
 })

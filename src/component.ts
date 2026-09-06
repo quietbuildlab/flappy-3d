@@ -17,8 +17,10 @@ export class FlappyElement extends HTMLElement {
       })
       this.emit('pma-ready')
     } catch (error) {
+      console.error('Flappy initialization failed', error)
       shadow.replaceChildren()
-      this.emit('pma-error', { message: error instanceof Error ? error.message : 'Unable to start Flappy.' })
+      const capabilityMessage = 'This game needs WebGL 2. Try a recent Chrome, Firefox, or Safari.'
+      this.emit('pma-error', { message: error instanceof Error && error.message === capabilityMessage ? capabilityMessage : 'Unable to start Flappy. Please try again.' })
     }
   }
 

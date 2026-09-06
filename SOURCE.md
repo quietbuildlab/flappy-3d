@@ -53,3 +53,5 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 ## Component deployment
 
 Deploy opts into the pinned dedicated arcade workflow and matching helper SHA. Node 24/pnpm 11.25.0 with frozen dependencies; source gates → root-base build → component/standalone and applicable budgets → validated cumulative GitHub release snapshot → Cloudflare Pages. Retained paths cannot change bytes; version asset filenames when replacing them. All publication remains CI-only. A separate downstream job builds /flappy-3d/ for the existing GitHub Pages site. Both the pre-upload root PWA gate and published GitHub Pages audit retain the 0.9 threshold. Production headers provide cross-origin assets and revalidate the stable entry. Update both support pins together after reviewing the support commit.
+
+The component logs unexpected initialization exceptions to the console and emits stable user-safe pma-error text; only the established WebGL 2 capability message is preserved. The narrow resize-setup fault asserts injection, identity, no premature ready, cleanup and reconnect recovery.
