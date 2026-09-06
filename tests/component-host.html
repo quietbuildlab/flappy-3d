@@ -12,6 +12,6 @@
     document.addEventListener(name, e => window.gameEvents.push({ name, detail: e.detail, bubbles: e.bubbles, composed: e.composed }))
   }
   document.querySelector('#fullscreen').onclick = () => document.querySelector('#slot').requestFullscreen()
-  import('http://127.0.0.1:5205/flappy-3d/component.js').catch(e => { window.moduleError = String(e) })
+  import('http://127.0.0.1:5205/component.js').catch(e => { window.moduleError = String(e) })
 </script>
 </html>

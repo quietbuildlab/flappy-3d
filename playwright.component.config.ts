@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   webServer: [
-    { command: 'pnpm exec vite preview --host 127.0.0.1 --port 5205 --strictPort', url: 'http://127.0.0.1:5205/flappy-3d/', reuseExistingServer: false },
+    { command: 'pnpm exec vite preview --host 127.0.0.1 --port 5205 --strictPort', url: 'http://127.0.0.1:5205/', reuseExistingServer: false },
     { command: 'node tests/component-server.mjs', url: 'http://127.0.0.1:5206', reuseExistingServer: false },
   ],
 })

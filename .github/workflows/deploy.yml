@@ -1,28 +1,25 @@
-name: Deploy
-
-# Thin caller — the actual build + deploy logic lives in the org's reusable
-# workflow at quiet-build/.github so improvements roll out to every project
-# at once. See that repo's README for available inputs.
+name: Deploy arcade component
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy:
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
-    uses: quiet-build/.github/.github/workflows/deploy-static-site.yml@main
+    uses: quiet-build/.github/.github/workflows/deploy-arcade-component.yml@f874ec46eb04fef8b85cd95ee6dca62b35e526ec
     with:
-      install-command: "corepack enable && pnpm install --frozen-lockfile"
-      build-command: pnpm build
-      pages-deploy: true
+      support-sha: f874ec46eb04fef8b85cd95ee6dca62b35e526ec
+      cloudflare-project-name: flappy-3d
+      prebuild-command: ": # No existing unit-test suite; build and browser gates follow"
+      postbuild-command: "pnpm exec playwright test --config playwright.component.config.ts && PLAYWRIGHT_BASE_URL=http://127.0.0.1:5205/ pnpm exec playwright test tests/cream-ui.spec.ts tests/side-camera.spec.ts --config playwright.standalone.config.ts"
+      pages-base: /flappy-3d/
       bundle-check-command: bash scripts/bundle-check.sh
-      lighthouse-pwa-gate: "0.9"
+      lighthouse-pwa-gate: '0.9'
     secrets:
-      CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

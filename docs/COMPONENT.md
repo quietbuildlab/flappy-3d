@@ -51,9 +51,9 @@ From this repository, with installed Playwright Chromium (or set
 `PLAYWRIGHT_EXECUTABLE_PATH` to a compatible Chromium binary):
 
 ```sh
-pnpm build
+VITE_BASE=/ pnpm build
 pnpm exec playwright test -c playwright.component.config.ts
-pnpm bundle-check
+bash scripts/bundle-check.sh
 ```
 
 The component config starts a production Vite preview on `127.0.0.1:5205`
@@ -65,11 +65,11 @@ disconnect/reconnects during respawn and menu animation, portrait/fullscreen
 and container resize, unsupported WebGL and partial setup failure recovery,
 uploaded image pixels and persisted mode/settings.
 
-For the existing standalone camera and desktop/mobile checks, start
-`pnpm exec vite preview --host 127.0.0.1 --port 5205 --strictPort`, then run:
+The component gate uses the root-base Cloudflare artifact. For the existing
+standalone camera and desktop/mobile checks against that same build, run:
 
 ```sh
-pnpm exec playwright test tests/side-camera.spec.ts tests/cream-ui.spec.ts
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5205/ pnpm exec playwright test --config playwright.standalone.config.ts
 ```
 
 The original browser red was the absent custom-element registration at

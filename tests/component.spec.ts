@@ -89,7 +89,7 @@ test('plays, pauses, restarts, isolates host keys and saves, loads remote audio 
   await expect(game.locator('.hud-screen.active')).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('desktop-gameplay.png') })
   expect(audio).toHaveLength(4)
-  expect(audio.every(url => url.startsWith('http://127.0.0.1:5205/flappy-3d/audio/'))).toBe(true)
+  expect(audio.every(url => url.startsWith('http://127.0.0.1:5205/audio/'))).toBe(true)
   expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0)
   expect(await page.evaluate(() => localStorage.getItem('flappy-3d:v1'))).toBe('standalone sentinel')
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('pma:flappy:v1')!).settings.cameraView)).toBe('far')

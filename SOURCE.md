@@ -44,7 +44,12 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 
 - `tests/` contains Playwright UAT and visual checks.
 - `playwright.component.config.ts`, `tests/component.spec.ts`, `tests/component-host.html` and `tests/component-server.mjs` run the built component across two origins. See `docs/COMPONENT.md` for commands and acceptance evidence.
+- `playwright.standalone.config.ts` starts the same root-base preview for the existing cream and camera suites in CI; it leaves historical remote UAT configuration unchanged.
 - `vite.config.ts` emits stable `component.js` and shared hashed JS chunks alongside standalone/PWA output; `public/_headers` configures CORS and revalidation. Production asset retention is an explicit release gate.
 - `tests/cream-ui.spec.ts` checks desktop/mobile settings, pause/resume, full leaderboard containment on short screens, and restart. After `pnpm build`, start `pnpm exec vite preview --port 5205`, then run `pnpm exec playwright test tests/cream-ui.spec.ts`. This suite defaults to the local `/flappy-3d/` preview (override with `PLAYWRIGHT_BASE_URL`), not the published site.
 - `docs/` and `.planning/` hold product, deployment, and planning records.
 - `public/audio/CREDITS.md` documents audio asset provenance.
+
+## Component deployment
+
+Deploy opts into the pinned dedicated arcade workflow and matching helper SHA. Node 24/pnpm 11.25.0 with frozen dependencies; source gates → root-base build → component/standalone and applicable budgets → validated cumulative GitHub release snapshot → Cloudflare Pages. Retained paths cannot change bytes; version asset filenames when replacing them. All publication remains CI-only. A separate downstream job builds /flappy-3d/ for the existing GitHub Pages site. Both the pre-upload root PWA gate and published GitHub Pages audit retain the 0.9 threshold. Production headers provide cross-origin assets and revalidate the stable entry. Update both support pins together after reviewing the support commit.
