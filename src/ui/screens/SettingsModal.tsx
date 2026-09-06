@@ -268,7 +268,7 @@ export function SettingsModal({
           h('div', { className: 'settings-picker settings-picker-shapes', role: 'group', 'aria-label': 'Bird shape' },
             (
               [
-                { id: 'sphere',  label: 'Sphere'  },
+                { id: 'sphere',  label: 'Classic' },
                 { id: 'cube',    label: 'Cube'    },
                 { id: 'pyramid', label: 'Pyramid' },
                 { id: 'bird',    label: '🐦'      },

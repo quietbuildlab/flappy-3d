@@ -19,7 +19,8 @@ export class Clouds {
   constructor(scene: Scene) {
     const mat = new StandardMaterial('cloud-mat', scene)
     mat.diffuseColor = new Color3(1, 1, 1)
-    mat.emissiveColor = new Color3(0.85, 0.88, 0.92)
+    mat.emissiveColor = new Color3(1, 0.98, 0.91)
+    mat.disableLighting = true
     mat.specularColor = Color3.Black()
     mat.alpha = 0.85
 
@@ -38,7 +39,7 @@ export class Clouds {
       cloud.position.z -= speed * dt
       if (cloud.position.z < DESPAWN_Z) {
         cloud.position.z = SPAWN_Z
-        cloud.position.x = randRange(-16, 16)
+        cloud.position.x = randRange(-16, -5)
         cloud.position.y = randRange(4, 8)
         this.scale(cloud)
       }
@@ -47,7 +48,7 @@ export class Clouds {
 
   reset(): void {
     for (const cloud of this.meshes) {
-      cloud.position.x = randRange(-16, 16)
+      cloud.position.x = randRange(-16, -5)
       cloud.position.y = randRange(4, 8)
       cloud.position.z = randRange(DESPAWN_Z, SPAWN_Z)
       this.scale(cloud)

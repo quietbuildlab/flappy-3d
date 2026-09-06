@@ -3,11 +3,8 @@ import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import type { Scene } from '@babylonjs/core/scene'
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
-import { PIPE_RADIUS, PIPE_HEIGHT } from '../constants'
+import { PIPE_RADIUS, PIPE_HEIGHT, PIPE_CAP_RADIUS as CAP_RADIUS, PIPE_CAP_HEIGHT as CAP_HEIGHT } from '../constants'
 import { hexColor3 } from '../render/toonMaterial'
-
-const CAP_HEIGHT = 0.3
-const CAP_RADIUS = PIPE_RADIUS + 0.16
 
 /**
  * A top + bottom pipe pair with a vertical gap. In the true-3D rebuild the

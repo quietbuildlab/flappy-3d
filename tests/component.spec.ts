@@ -96,7 +96,7 @@ test('plays, pauses, restarts, isolates host keys and saves, loads remote audio 
   expect(errors).toEqual([])
 })
 
-test('ten disconnect/reconnects stop detached WebGL rendering, including respawn and menu animations', async ({ page }) => {
+test('ten disconnect/reconnects stop detached WebGL rendering, including results and menu animations', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', e => errors.push(e.message))
   await page.goto('/')
@@ -105,7 +105,7 @@ test('ten disconnect/reconnects stop detached WebGL rendering, including respawn
   for (let cycle = 0; cycle < 10; cycle++) {
     if (cycle % 2 === 0) {
       await game.locator('.title-heading').click()
-      await expect(game.getByRole('status', { name: '2 lives remaining' })).toBeVisible({ timeout: 10_000 })
+      await expect(game.locator('.gameover-screen.active')).toBeVisible({ timeout: 5_000 })
     }
     await game.evaluate((el: any) => { (window as any).detached = el; el.remove() })
     const draws = await page.evaluate(() => [...(window as any).draws.values()])

@@ -47,8 +47,8 @@ export default defineConfig({
         name: 'Flappy 3D',
         short_name: 'Flappy 3D',
         description: 'A polished 3D Flappy Bird PWA.',
-        theme_color: '#7ec8e3',
-        background_color: '#1a1a1a',
+        theme_color: '#f8f5ed',
+        background_color: '#f8f5ed',
         display: 'standalone',
         orientation: 'portrait',
         // start_url + scope must match the served path. Mirror BASE so the PWA

@@ -6,11 +6,8 @@ import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import type { Scene } from '@babylonjs/core/scene'
 import { SKY_KEYFRAMES, SKY_CYCLE_DURATION_S, WORLD_FLOOR_Y } from '../constants'
 
-const MOUNTAIN_COLOR = 0x4a5568
-// Earthy brown ground — deliberately not green so the green pipes (and trees)
-// read with strong contrast against it; gap visibility is core to Flappy.
-// Kept dark enough that the up-facing plane doesn't blow out under lighting.
-const GROUND_COLOR = 0x6f5a34
+const MOUNTAIN_COLOR = 0xb9d2b1
+const GROUND_COLOR = 0xf3dc91
 const MOUNTAIN_COUNT = 7
 const MOUNTAIN_Z_SPAN = 140 // recycle window length in Z
 const MOUNTAIN_Z_START = -14
@@ -29,33 +26,37 @@ export class Background {
     this.scene = scene
 
     // Ground — long plane stretching down the +Z corridor.
-    const ground = MeshBuilder.CreateGround(
+    const ground = MeshBuilder.CreateBox(
       'ground',
-      { width: 60, height: MOUNTAIN_Z_SPAN + 80, subdivisions: 1 },
+      { width: 20, height: 8, depth: MOUNTAIN_Z_SPAN + 80 },
       scene,
     )
-    ground.position.set(0, WORLD_FLOOR_Y, 50)
+    ground.position.set(0, WORLD_FLOOR_Y - 4, 50)
     const groundMat = new StandardMaterial('ground-mat', scene)
     groundMat.diffuseColor = colorOf(GROUND_COLOR)
+    groundMat.emissiveColor = colorOf(GROUND_COLOR)
+    groundMat.disableLighting = true
     groundMat.specularColor = Color3.Black()
     ground.material = groundMat
 
     // Distant mountains — large cones on either side of the lane.
     const mountainMat = new StandardMaterial('mountain-mat', scene)
     mountainMat.diffuseColor = colorOf(MOUNTAIN_COLOR)
+    mountainMat.emissiveColor = colorOf(MOUNTAIN_COLOR)
+    mountainMat.disableLighting = true
     mountainMat.specularColor = Color3.Black()
     for (let i = 0; i < MOUNTAIN_COUNT; i++) {
-      const m = MeshBuilder.CreateCylinder(
+      const m = MeshBuilder.CreateSphere(
         `mountain-${i}`,
-        { height: 6 + (i % 3) * 2, diameterTop: 0, diameterBottom: 9, tessellation: 5 },
+        { diameter: 10, segments: 20 },
         scene,
       )
       m.material = mountainMat
       m.isPickable = false
-      const side = i % 2 === 0 ? -1 : 1
+      m.scaling.set(1, 0.55 + (i % 3) * 0.1, 1.5)
       m.position = new Vector3(
-        side * (14 + (i % 3) * 4),
-        WORLD_FLOOR_Y + 2,
+        -(14 + (i % 3) * 4),
+        WORLD_FLOOR_Y - 1,
         MOUNTAIN_Z_START + (i / MOUNTAIN_COUNT) * MOUNTAIN_Z_SPAN,
       )
       this.mountains.push(m)

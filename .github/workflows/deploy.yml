@@ -15,7 +15,7 @@ jobs:
     with:
       support-sha: 8286c17efa989220f88548ffb901f742e3302f3e
       cloudflare-project-name: flappy-3d
-      prebuild-command: "node --test tests/redirect.test.mjs"
+      prebuild-command: "node --test tests/redirect.test.mjs && pnpm exec playwright test --config playwright.gameplay.config.ts"
       postbuild-command: "pnpm exec playwright test --config playwright.component.config.ts && PLAYWRIGHT_BASE_URL=http://127.0.0.1:5205/ pnpm exec playwright test tests/cream-ui.spec.ts tests/side-camera.spec.ts --config playwright.standalone.config.ts"
       pages-base: /flappy-3d/
       bundle-check-command: bash scripts/bundle-check.sh

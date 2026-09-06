@@ -260,10 +260,9 @@ function App(props: AppProps) {
       storage: props.storage,
     }),
     h(HUD, {
-      active: value === 'playing' || value === 'dying' || value === 'respawning',
+      active: value === 'playing' || value === 'dying',
       actor: props.actor,
       score: snap.context.score,
-      lives: snap.context.lives,
       onPause: () => props.actor.send({ type: 'PAUSE' }),
       mode: snap.context.mode,
       timerSystem: props.timerSystem,

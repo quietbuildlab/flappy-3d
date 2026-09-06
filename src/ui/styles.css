@@ -1,14 +1,14 @@
 h1,
 h2 {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Fredoka', ui-rounded, 'Arial Rounded MT Bold', system-ui, sans-serif;
 }
 
 /* ── Theme tokens ── */
 .flappy-root {
-  --paper: #f5f2e8;
-  --paper-soft: #fffaf0;
-  --forest: #214f3b;
-  --cocoa: #5b4637;
+  --paper: #f8f5ed;
+  --paper-soft: #fffdf7;
+  --forest: #315b48;
+  --cocoa: #263c32;
   --rust: #a9553a;
   --sage-border: #cbd2bd;
   --btn-top: var(--forest);
@@ -20,8 +20,8 @@ h2 {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #1a1a2e;
+  font-family: 'Nunito', ui-rounded, system-ui, sans-serif;
+  color: var(--cocoa);
   z-index: 10;
 }
 
@@ -160,50 +160,6 @@ h2 {
   user-select: none;
   line-height: 1;
 }
-/* v1.9 — Lives row (top-left of HUD, below the score). 5 emoji slots
-   shown — filled = ❤️, empty = 🖤. One-shot fx-gain / fx-lose classes
-   animate the affected slot for ~600ms. */
-.hud-hearts {
-  position: absolute;
-  top: 18px;
-  left: 16px;
-  display: flex;
-  gap: 4px;
-  pointer-events: none;
-  user-select: none;
-  font-size: 1.4rem;
-  padding: 8px 14px;
-  border: 1px solid rgba(255,255,255,0.65);
-  border-radius: 18px;
-  background: rgba(245,242,232,0.9);
-  box-shadow: 0 8px 22px rgba(52,62,43,0.16);
-}
-.hud-heart {
-  display: inline-block;
-  transition: opacity 200ms ease;
-}
-.hud-heart.empty { opacity: 0.32; }
-.hud-heart.fx-gain {
-  animation: heart-gain 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.hud-heart.fx-lose {
-  animation: heart-lose 600ms cubic-bezier(0.4, 0, 0.6, 1) both;
-}
-@keyframes heart-gain {
-  0%   { transform: scale(0.2) rotate(-15deg); opacity: 0; filter: drop-shadow(0 0 12px #66ff99); }
-  40%  { transform: scale(1.4) rotate(8deg);   opacity: 1; filter: drop-shadow(0 0 20px #66ff99); }
-  70%  { transform: scale(0.95);                filter: drop-shadow(0 0 8px #66ff99); }
-  100% { transform: scale(1);                   filter: none; }
-}
-@keyframes heart-lose {
-  0%   { transform: scale(1);                   opacity: 1; filter: drop-shadow(0 0 8px #ff5252); }
-  30%  { transform: scale(1.5) rotate(15deg);   opacity: 1; filter: drop-shadow(0 0 16px #ff5252); }
-  100% { transform: scale(0.4) translateY(20px); opacity: 0.32; filter: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hud-heart { animation: none; transition: none; }
-}
-
 #ui-root .hud-pause-btn {
   position: absolute;
   top: 16px;
@@ -223,18 +179,16 @@ h2 {
 
 /* ── Title screen ── */
 .title-screen {
-  /* Vertical-gradient overlay: dim slightly at top + bottom (so DOM text
-     reads cleanly) but leave the mid-band untouched so the showcased bird
-     reads as the mascot, not a faint silhouette behind a wash. */
+  /* A light paper wash leaves the illustrated mascot and scenery clear. */
   background: linear-gradient(
     180deg,
-    rgba(10, 30, 60, 0.30) 0%,
-    rgba(10, 30, 60, 0.00) 25%,
-    rgba(10, 30, 60, 0.00) 60%,
-    rgba(10, 30, 60, 0.55) 100%
+    rgba(248, 245, 237, 0.20) 0%,
+    rgba(248, 245, 237, 0.00) 25%,
+    rgba(248, 245, 237, 0.00) 60%,
+    rgba(248, 245, 237, 0.35) 100%
   );
   /* No backdrop-filter: full clarity on the 3D scene behind. */
-  color: white;
+  color: var(--forest);
   gap: 24px;
   padding-top: 12cqh;          /* logo sits in upper third */
   padding-bottom: 12cqh;       /* mode picker + leaderboard in lower third — */
@@ -247,7 +201,7 @@ h2 {
   position: absolute;
   inset: auto 0 0 0;
   height: 6cqh;
-  background: linear-gradient(180deg, rgba(40,80,40,0.0), rgba(40,80,40,0.55));
+  background: linear-gradient(180deg, transparent, rgba(248,245,237,0.35));
   pointer-events: none;
 }
 .title-heading {
@@ -256,10 +210,10 @@ h2 {
   padding: 14px 24px 16px;
   border: 1px solid rgba(255,255,255,0.75);
   border-radius: 24px;
-  background: rgba(245,242,232,0.93);
+  background: var(--paper-soft);
   color: var(--forest);
   letter-spacing: -0.045em;
-  box-shadow: 0 14px 36px rgba(52,62,43,0.2);
+  box-shadow: 0 5px 0 rgba(49,91,72,0.10);
   margin: 0;
 }
 /* Diorama Pass v1.7 — invisible flex grow band that separates the logo
@@ -377,7 +331,7 @@ h2 {
   border: 1px solid rgba(255,255,255,0.8);
   border-radius: 24px;
   background: rgba(245,242,232,0.96);
-  box-shadow: 0 20px 56px rgba(20,43,34,0.34);
+  box-shadow: 0 8px 28px rgba(49,91,72,0.16);
 }
 
 /* ── Settings modal ── */
@@ -713,7 +667,6 @@ dialog.settings-modal::backdrop {
   .title-heading { padding: 11px 16px 13px; border-radius: 20px; }
   .title-bird-zone { min-height: 18cqh; }
   .hud-score { top: 14px; padding: 7px 12px; }
-  .hud-hearts { top: 68px; left: 10px; padding: 7px 9px; font-size: 1.05rem; }
   #ui-root .hud-pause-btn { top: 12px; right: 10px; }
   dialog.settings-modal { padding: 18px; }
 }

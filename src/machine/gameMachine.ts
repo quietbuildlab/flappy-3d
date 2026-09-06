@@ -4,20 +4,12 @@ import { setup, assign, emit } from 'xstate'
 
 export type GameMode = 'endless' | 'timeAttack' | 'daily'
 
-// v1.9 — Lives system constants. 3 starting lives; +1 every 5 obstacles
-// passed, capped at 5 (so the bonus stops accumulating into infinity but
-// you keep getting them as a recovery cushion).
-export const STARTING_LIVES = 3
-export const MAX_LIVES = 5
-export const SCORE_PER_BONUS_LIFE = 5
-
 export type GameContext = {
   score: number
   bestScore: number
   runDuration: number
   paused: boolean
   mode: GameMode
-  lives: number       // v1.9 — remaining lives this round
 }
 
 export type GameEvent =
@@ -26,7 +18,6 @@ export type GameEvent =
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
   | { type: 'HIT' }
-  | { type: 'RESPAWN_DONE' }   // v1.9 — fired by main.ts after respawn delay
   | { type: 'RESTART' }
   | { type: 'SCORE' }
   | { type: 'SET_MODE'; mode: GameMode }
@@ -36,12 +27,7 @@ export type GameEvent =
 // starting" so external systems (Three.js entities, pools) can reset.
 // Distinct from the playing state's `entry` to avoid firing on RESUME.
 //   - roundStarted: full round reset (bird → 0,0,0; obstacles released)
-//   - lifeLost: HIT consumed a life but lives > 0 → respawn (no full reset)
-//   - lifeGained: bonus life from score milestone
-export type GameEmitted =
-  | { type: 'roundStarted' }
-  | { type: 'lifeLost'; livesRemaining: number }
-  | { type: 'lifeGained'; livesRemaining: number }
+export type GameEmitted = { type: 'roundStarted' }
 
 export const gameMachine = setup({
   types: {
@@ -60,7 +46,6 @@ export const gameMachine = setup({
     runDuration: 0,
     paused: false,
     mode: input.mode ?? 'endless',
-    lives: STARTING_LIVES,
   }),
   initial: 'title',
   states: {
@@ -69,7 +54,7 @@ export const gameMachine = setup({
         START: {
           target: 'playing',
           actions: [
-            assign({ score: 0, runDuration: 0, lives: STARTING_LIVES }),
+            assign({ score: 0, runDuration: 0 }),
             emit({ type: 'roundStarted' }),
           ],
         },
@@ -81,61 +66,12 @@ export const gameMachine = setup({
 
     playing: {
       on: {
-        // v1.9 — HIT branches: spend a life and respawn if any remain,
-        // otherwise fall through to dying as before.
-        HIT: [
-          {
-            guard: ({ context }) => context.lives > 1,
-            target: 'respawning',
-            actions: [
-              assign({ lives: ({ context }) => context.lives - 1 }),
-              emit(({ context }) => ({
-                type: 'lifeLost' as const,
-                livesRemaining: context.lives - 1,
-              })),
-            ],
-          },
-          { target: 'dying' },
-        ],
+        HIT: { target: 'dying' },
         TIME_UP: { target: 'dying' },
-        SCORE: [
-          // Bonus-life branch: score increments AND crosses a SCORE_PER_BONUS_LIFE
-          // boundary AND lives below cap. Increments score + lives, emits lifeGained.
-          {
-            guard: ({ context }) => {
-              const next = context.score + 1
-              return next % SCORE_PER_BONUS_LIFE === 0 && context.lives < MAX_LIVES
-            },
-            actions: [
-              assign({
-                score: ({ context }) => context.score + 1,
-                lives: ({ context }) => context.lives + 1,
-              }),
-              emit(({ context }) => ({
-                type: 'lifeGained' as const,
-                livesRemaining: context.lives,  // post-assign; reflects new value
-              })),
-            ],
-          },
-          // Default branch: just increment score (no emit needed).
-          {
-            actions: assign({ score: ({ context }) => context.score + 1 }),
-          },
-        ],
+        SCORE: { actions: assign({ score: ({ context }) => context.score + 1 }) },
         PAUSE: { target: 'paused' },
         // FLAP handled externally (PhysicsSystem reads state)
         FLAP: {},
-      },
-    },
-
-    // v1.9 — respawning is a brief invincibility window where the bird is
-    // reset to (0,0,0) and the player can't take damage. Driven externally
-    // by main.ts (which fires RESPAWN_DONE after ~1.4s including animation).
-    respawning: {
-      on: {
-        RESPAWN_DONE: { target: 'playing' },
-        // Allow pause during respawn for safety (don't softlock)
-        PAUSE: { target: 'paused' },
       },
     },
 
@@ -179,7 +115,7 @@ export const gameMachine = setup({
         RESTART: {
           target: 'playing',
           actions: [
-            assign({ score: 0, runDuration: 0, lives: STARTING_LIVES }),
+            assign({ score: 0, runDuration: 0 }),
             emit({ type: 'roundStarted' }),
           ],
         },
@@ -189,7 +125,7 @@ export const gameMachine = setup({
           // milestone-fired set + ghost meshes + pipe color cycle index.
           target: 'title',
           actions: [
-            assign({ score: 0, runDuration: 0, lives: STARTING_LIVES }),
+            assign({ score: 0, runDuration: 0 }),
             emit({ type: 'roundStarted' }),
           ],
         },

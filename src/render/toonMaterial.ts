@@ -43,8 +43,8 @@ export function createToonMaterial(scene: Scene, colorHex: number): StandardMate
 // Colorblind-safe palette (deuteranopia/protanopia, per D-13)
 const COLORBLIND_BIRD_COLOR = 0xffd166 // high-luminance yellow
 export const COLORBLIND_PIPE_COLOR = 0x118ab2 // teal-blue (high contrast vs sky)
-const DEFAULT_BIRD_COLOR = 0xff7043    // orange
-const DEFAULT_PIPE_COLOR = 0x4caf50    // green
+const DEFAULT_BIRD_COLOR = 0xefad61    // honey
+const DEFAULT_PIPE_COLOR = 0x78ad85    // sage
 
 function repaint(mat: StandardMaterial, hex: number): void {
   const c = hexColor3(hex)

@@ -49,9 +49,10 @@ for (const [name, viewport] of Object.entries({
       await page.waitForTimeout(200)
       await page.screenshot({ path: testInfo.outputPath('play.png') })
 
-      // Let normal gravity/collisions exhaust the three lives.
+      // The first floor collision ends the round; no hearts or respawn.
+      await expect(page.locator('.hud-hearts')).toHaveCount(0)
       const results = page.locator('.gameover-screen.active')
-      await expect(results).toBeVisible({ timeout: 30_000 })
+      await expect(results).toBeVisible({ timeout: 5_000 })
       await expect(results.locator('.leaderboard-item')).toHaveCount(5)
       if (name === 'mobile') await page.setViewportSize({ width: 320, height: 568 })
       const card = await results.locator('.result-card').boundingBox()

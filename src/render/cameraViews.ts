@@ -1,5 +1,6 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { FreeCamera } from '@babylonjs/core/Cameras/freeCamera'
+import { Camera } from '@babylonjs/core/Cameras/camera'
 
 /** Selectable camera framings for the true-3D corridor. */
 export type CameraView = 'chase' | 'side' | 'far'
@@ -39,4 +40,20 @@ export function applyCameraView(camera: FreeCamera, view: CameraView): void {
   camera.position.set(cfg.pos.x, cfg.pos.y, cfg.pos.z)
   camera.setTarget(new Vector3(cfg.target.x, cfg.target.y, cfg.target.z))
   camera.fov = cfg.fov
+  camera.mode = view === 'side' ? Camera.ORTHOGRAPHIC_CAMERA : Camera.PERSPECTIVE_CAMERA
+  resizeSideCamera(camera)
+}
+
+/** Keep bird and pipe edges on one scale, with the bird at 32.5% width. */
+export function resizeSideCamera(camera: FreeCamera): void {
+  if (camera.mode !== Camera.ORTHOGRAPHIC_CAMERA) return
+  const engine = camera.getEngine()
+  const halfHeight = 5.2
+  const halfWidth = halfHeight * engine.getRenderWidth() / engine.getRenderHeight()
+  camera.orthoTop = halfHeight
+  camera.orthoBottom = -halfHeight
+  camera.orthoLeft = -halfWidth
+  camera.orthoRight = halfWidth
+  camera.position.z = halfWidth * 0.35
+  camera.setTarget(new Vector3(0, 0, camera.position.z))
 }

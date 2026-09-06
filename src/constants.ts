@@ -1,12 +1,12 @@
-import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Color3 } from '@babylonjs/core/Maths/math.color.js'
 
 // Phase 13 — day/night cycle keyframes (ATMOS-03)
 // 4 keyframes evenly spaced at 0s / 15s / 30s / 45s; loops back to 0 at 60s
 export const SKY_KEYFRAMES = [
-  { top: new Color3(0.49, 0.78, 0.89), bottom: new Color3(0.74, 0.90, 0.94) }, // 0s  — morning
-  { top: new Color3(0.36, 0.67, 0.82), bottom: new Color3(0.66, 0.84, 0.91) }, // 15s — midday
-  { top: new Color3(1.00, 0.60, 0.40), bottom: new Color3(1.00, 0.84, 0.70) }, // 30s — sunset
-  { top: new Color3(0.23, 0.29, 0.55), bottom: new Color3(0.48, 0.35, 0.61) }, // 45s — dusk
+  { top: new Color3(0.79, 0.91, 0.91), bottom: new Color3(0.90, 0.95, 0.91) }, // morning
+  { top: new Color3(0.76, 0.88, 0.91), bottom: new Color3(0.88, 0.94, 0.94) }, // midday
+  { top: new Color3(0.96, 0.85, 0.78), bottom: new Color3(0.98, 0.91, 0.83) }, // sunset
+  { top: new Color3(0.83, 0.83, 0.92), bottom: new Color3(0.92, 0.88, 0.94) }, // dusk
 ] as const
 export const SKY_CYCLE_DURATION_S = 60
 
@@ -31,8 +31,12 @@ export const CAMERA_FOV = 0.85              // radians (~49°)
 
 // Obstacle geometry — pipes are vertical cylinders along Y
 export const PIPE_RADIUS = 0.7
+export const PIPE_CAP_RADIUS = PIPE_RADIUS + 0.16
+export const PIPE_CAP_HEIGHT = 0.3
+// A forgiving circle inside the illustrated body; feathers and beak do not collide.
+export const BIRD_RADIUS = 0.24
 export const PIPE_HEIGHT = 8
-export const PIPE_COLOR = 0x4caf50          // green
+export const PIPE_COLOR = 0x78ad85          // sage
 
 // Difficulty ramp (per D-13)
 export const BASE_SPAWN_INTERVAL = 1.6      // seconds between spawns at score 0
@@ -75,16 +79,16 @@ export const ALL_BIRD_SHAPES = ['sphere','cube','pyramid','bird','cat','dog','fr
 
 // Phase 7 — pipe color cycling (BEAUTY-08, D-14, D-18)
 export const PIPE_COLOR_CYCLE: readonly number[] = [
-  0x4caf50,  // green
-  0x3f8fb8,  // teal-blue
-  0xb8843f,  // warm orange-brown
-  0x9b3fb8,  // muted purple
+  0x78ad85,  // sage
+  0x80b2b9,  // soft teal
+  0xccaa7c,  // honey
+  0xae9abc,  // lavender
 ] as const
 
 // Object pool — pre-warmed ObstaclePair instances
 export const POOL_SIZE = 10
 
 // Post-processing (bloom + vignette)
-export const BLOOM_WEIGHT = 0.55
+export const BLOOM_WEIGHT = 0.04
 export const BLOOM_THRESHOLD = 0.78
-export const VIGNETTE_WEIGHT = 2.2
+export const VIGNETTE_WEIGHT = 0.15

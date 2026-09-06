@@ -25,7 +25,7 @@ import { squashStretch, screenShake, wingFlap, pulseFOV } from './anim/anim'
 import { createParticles } from './particles/createParticles'
 import { prefersReducedMotion } from './a11y/motion'
 import { PIPE_COLOR, POOL_SIZE } from './constants'
-import { applyCameraView, CAMERA_VIEWS, CAMERA_VIEW_ORDER } from './render/cameraViews'
+import { applyCameraView, resizeSideCamera, CAMERA_VIEWS, CAMERA_VIEW_ORDER } from './render/cameraViews'
 import type { CameraView } from './render/cameraViews'
 import { mulberry32, dailySeed } from './utils/rng'
 import { difficultyFrom } from './systems/Difficulty'
@@ -33,7 +33,7 @@ import { ALL_BIRD_SHAPES, SHAPE_UNLOCK_THRESHOLDS } from './constants'
 
 // Pretty labels for unlock toasts.
 const EMOJI_FOR_SHAPE_FOR_TOAST: Record<string, string> = {
-  sphere: 'Sphere', cube: 'Cube', pyramid: 'Pyramid',
+  sphere: 'Classic', cube: 'Cube', pyramid: 'Pyramid',
   bird: '🐦', cat: '🐱', dog: '🐶', frog: '🐸',
   unicorn: '🦄', penguin: '🐧',
 }
@@ -76,7 +76,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}) {
   try {
     const { engine, scene, camera } = createEngine(canvas)
     cleanups.push(() => engine.dispose())
-    const resize = new ResizeObserver(() => engine.resize())
+    const resize = new ResizeObserver(() => { engine.resize(); resizeSideCamera(camera) })
     resize.observe(root)
     cleanups.push(() => resize.disconnect())
 
@@ -86,7 +86,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}) {
     })
     cleanups.push(() => actor.stop())
 
-    const birdMaterial = createToonMaterial(scene, 0xff7043)
+    const birdMaterial = createToonMaterial(scene, 0xefad61)
     const pipeMaterial = createToonMaterial(scene, PIPE_COLOR)
     addRimLight(birdMaterial)
 
@@ -332,7 +332,6 @@ export function mount(root: HTMLElement, options: MountOptions = {}) {
       bird.root.rotation.z = 0
       bird.root.position.set(0, 0, 0)
       bird.syncMesh()
-      bird.setAlpha(1)
       const toRelease: ObstaclePair[] = []
       obstaclePool.forEachActive((pair) => {
         pair.hide()
@@ -366,51 +365,6 @@ export function mount(root: HTMLElement, options: MountOptions = {}) {
     let lastScore = 0
     let prevState: string | undefined
 
-    // v1.9 — Lives system.
-    const lifeLost = actor.on('lifeLost', () => {
-      bird.position.set(0, 0, 0)
-      bird.velocity.set(0, 0, 0)
-      bird.prevPosition.set(0, 0, 0)
-      bird.root.rotation.z = 0
-      bird.syncMesh()
-      physics.queueFlap()
-      const toRelease: ObstaclePair[] = []
-      obstaclePool.forEachActive((pair) => {
-        pair.hide()
-        toRelease.push(pair)
-      })
-      for (const p of toRelease) obstaclePool.release(p)
-      if (!prefersReducedMotion(storage)) {
-        particles.burstTinted(
-          { x: bird.position.x, y: bird.position.y, z: bird.position.z },
-          0xff5252,
-        )
-        // Bird "blinks" during the invincibility window.
-        let blinks = 0
-        const blink = () => {
-          bird.setAlpha(blinks % 2 === 0 ? 0.3 : 1.0)
-          blinks++
-          if (blinks < 6) later(blink, 200)
-          else bird.setAlpha(1)
-        }
-        blink()
-      }
-      audio.playDeath()
-      later(() => actor.send({ type: 'RESPAWN_DONE' }), 1400)
-    })
-
-    cleanups.push(() => lifeLost.unsubscribe())
-    const lifeGained = actor.on('lifeGained', () => {
-      if (!prefersReducedMotion(storage)) {
-        particles.burstTinted(
-          { x: bird.position.x, y: bird.position.y, z: bird.position.z },
-          0x66ff99,
-        )
-      }
-      audio.playScore()
-    })
-
-    cleanups.push(() => lifeGained.unsubscribe())
     const subscription = actor.subscribe((snapshot) => {
       const s = snapshot.value as string
       const roundEnded = s === 'gameOver' && prevState !== 'gameOver'

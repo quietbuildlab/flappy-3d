@@ -38,11 +38,11 @@ export function createEngine(canvas: HTMLCanvasElement): EngineBundle {
     camera.setTarget(new Vector3(0, 0, 6))
 
     const keyLight = new DirectionalLight('key', new Vector3(-0.4, -0.7, 0.6), scene)
-    keyLight.intensity = 1.6
+    keyLight.intensity = 0.65
     keyLight.diffuse = new Color3(1, 0.98, 0.92)
 
     const fillLight = new HemisphericLight('fill', new Vector3(0, 1, 0), scene)
-    fillLight.intensity = 0.85
+    fillLight.intensity = 0.55
     fillLight.diffuse = new Color3(0.85, 0.92, 1)
     fillLight.groundColor = new Color3(0.35, 0.32, 0.3)
 

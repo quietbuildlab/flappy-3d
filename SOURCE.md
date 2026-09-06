@@ -18,7 +18,7 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 ## Game Loop And State
 
 - `src/loop/GameLoop.ts` owns fixed-step update timing.
-- `src/machine/gameMachine.ts` is the pure xstate game state machine. It must stay free of Babylon and DOM imports.
+- `src/machine/gameMachine.ts` is the pure xstate game state machine. One collision ends the round via `dying` → `gameOver`; there are no lives, bonus lives or respawns. It must stay free of Babylon and DOM imports.
 - `src/input/InputManager.ts` normalizes pointer/keyboard input.
 - `src/storage/StorageManager.ts` owns localStorage persistence.
   The component uses `pma:flappy:v1` on its host origin; standalone keeps `flappy-3d:v1` on its own origin. The state machine no longer owns a storage singleton.
@@ -28,6 +28,7 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 
 - `src/entities/` contains scene objects such as bird, obstacles, background, clouds, and world layers.
 - `src/systems/` contains gameplay rules: collision, difficulty, physics, scoring, scrolling, spawning, and timer behavior.
+- `CollisionSystem` uses a forgiving body circle against the rendered shaft/cap dimensions shared in `constants.ts`, including the wider lips. Collision stays on logical Y/Z coordinates. The default side camera uses an aspect-correct orthographic projection; chase/far remain perspective choices.
 - `src/render/` builds the Babylon engine, camera views, post-processing, and toon materials. Keep Babylon imports deep to preserve bundle size.
 - `src/particles/` owns particle emitter setup.
 - `src/pools/ObjectPool.ts` provides reusable objects for runtime allocation control.
@@ -39,11 +40,12 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 - `src/ui/UIBridge.tsx` is the only bridge between DOM overlay state and the game runtime.
 - `src/ui/components/` contains reusable Preact controls.
 - `src/ui/screens/` contains screen-level overlay states.
-- `src/ui/styles.css` styles cream-paper menus, HUD cards, rounded controls, and dialogs; the 3D world remains unchanged. Pause/GameOver screen `result-card` wrappers size to their content and scroll within short viewports. Keep inactive overlays non-interactive and recheck keyboard/touch, settings selection, and full leaderboards after chrome changes.
+- `src/ui/styles.css` styles cream-paper menus, HUD cards, rounded controls, and dialogs. The procedural bird skin matches the portal mascot; sage pipes, rounded hills and pastel skies keep the world in the same palette. Decorative scenery stays behind the flight lane. Pause/GameOver screen `result-card` wrappers size to their content and scroll within short viewports. Keep inactive overlays non-interactive and recheck keyboard/touch, settings selection, and full leaderboards after chrome changes.
 
 ## Tests And Docs
 
 - `tests/` contains Playwright UAT and visual checks.
+- `pnpm exec playwright test --config playwright.gameplay.config.ts` checks body clearance, cap/shaft corners, floor contact, and one-hit rounds across all three modes before CI builds.
 - `playwright.component.config.ts`, `tests/component.spec.ts`, `tests/component-host.html` and `tests/component-server.mjs` run the built component across two origins. See `docs/COMPONENT.md` for commands and acceptance evidence.
 - `playwright.standalone.config.ts` starts the same root-base preview for the existing cream and camera suites in CI; it leaves historical remote UAT configuration unchanged.
 - `vite.config.ts` emits stable `component.js` and shared hashed JS chunks alongside standalone/PWA output; `public/_headers` configures CORS and revalidation. Production asset retention is an explicit release gate.

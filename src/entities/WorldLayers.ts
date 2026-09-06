@@ -6,9 +6,9 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { Scene } from '@babylonjs/core/scene'
 import { WORLD_FLOOR_Y } from '../constants'
 
-const TREE_FOLIAGE_COLOR = 0x2d5a27
-const TREE_TRUNK_COLOR = 0x4a3527
-const SHRUB_COLOR = 0x4a8a4a
+const TREE_FOLIAGE_COLOR = 0xa8cba2
+const TREE_TRUNK_COLOR = 0xc2ab85
+const SHRUB_COLOR = 0xbcd6ad
 
 const TREE_COUNT = 12
 const Z_SPAN = 130
@@ -37,6 +37,10 @@ export class WorldLayers {
     const shrubMat = new StandardMaterial('shrub-mat', scene)
     shrubMat.diffuseColor = colorOf(SHRUB_COLOR)
     shrubMat.specularColor = Color3.Black()
+    for (const mat of [trunkMat, foliageMat, shrubMat]) {
+      mat.disableLighting = true
+      mat.emissiveColor = mat.diffuseColor
+    }
 
     for (let i = 0; i < TREE_COUNT; i++) {
       const tree = new TransformNode(`tree-${i}`, scene)
@@ -46,8 +50,8 @@ export class WorldLayers {
       trunk.material = trunkMat
       trunk.position.y = 0.55
       trunk.parent = tree
-      const foliage = MeshBuilder.CreateCylinder(
-        `foliage-${i}`, { height: 2, diameterTop: 0, diameterBottom: 1.4, tessellation: 7 }, scene,
+      const foliage = MeshBuilder.CreateSphere(
+        `foliage-${i}`, { diameter: 1.8, segments: 12 }, scene,
       )
       foliage.material = foliageMat
       foliage.position.y = 2
@@ -58,9 +62,8 @@ export class WorldLayers {
       shrub.position.set(0.5, 0.25, 0.3)
       shrub.parent = tree
 
-      const side = i % 2 === 0 ? -1 : 1
       tree.position = new Vector3(
-        side * (LANE_EDGE + (i % 3) * 1.5),
+        -(LANE_EDGE + (i % 3) * 1.5),
         WORLD_FLOOR_Y,
         Z_START + (i / TREE_COUNT) * Z_SPAN,
       )
@@ -106,7 +109,7 @@ export class WorldLayers {
         this.balloonActive = true
         this.balloon.setEnabled(true)
         this.balloon.position.set(
-          (Math.random() > 0.5 ? 1 : -1) * (4 + Math.random() * 3),
+          -(4 + Math.random() * 3),
           2 + Math.random() * 3,
           Z_SPAN * 0.7,
         )

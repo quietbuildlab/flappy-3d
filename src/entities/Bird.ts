@@ -13,7 +13,7 @@ const GHOST_OPACITIES = [0.55, 0.38, 0.2] as const
 const GHOST_SCALES = [0.95, 0.9, 0.85] as const
 const GHOST_FADE_SPEED = 1 / 0.18 // opacity → 0 in 180ms
 
-const GEOMETRIC_SHAPES: ReadonlySet<BirdShape> = new Set(['sphere', 'cube', 'pyramid'])
+const GEOMETRIC_SHAPES: ReadonlySet<BirdShape> = new Set(['cube', 'pyramid'])
 const EMOJI_FOR_SHAPE: Record<string, string> = {
   bird: '🐦', cat: '🐱', dog: '🐶', frog: '🐸', unicorn: '🦄', penguin: '🐧',
 }
@@ -152,7 +152,29 @@ export class Bird {
 
   private applyShape(): void {
     this.rebuildBody(this.currentShape)
-    if (GEOMETRIC_SHAPES.has(this.currentShape)) {
+    if (this.currentShape === 'sphere') {
+      // Same illustrated mascot as the arcade cover, on the existing skin plane.
+      this.paintSkin((ctx) => {
+        ctx.lineWidth = 7
+        ctx.lineJoin = 'round'
+        ctx.strokeStyle = '#614b35'
+        ctx.fillStyle = '#efad61'
+        ctx.beginPath()
+        ctx.ellipse(124, 128, 84, 72, 0, 0, Math.PI * 2)
+        ctx.fill(); ctx.stroke()
+        ctx.fillStyle = '#e68c60'
+        ctx.beginPath()
+        ctx.moveTo(190, 115); ctx.lineTo(246, 139); ctx.lineTo(197, 157)
+        ctx.closePath(); ctx.fill(); ctx.stroke()
+        ctx.fillStyle = '#f5d991'
+        ctx.beginPath(); ctx.ellipse(94, 151, 44, 31, -0.2, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#fff9e8'
+        ctx.beginPath(); ctx.arc(167, 105, 21, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = '#263c32'
+        ctx.beginPath(); ctx.arc(173, 106, 9, 0, Math.PI * 2); ctx.fill()
+      })
+      this.setAccentsVisible(false)
+    } else if (GEOMETRIC_SHAPES.has(this.currentShape)) {
       this.disposeSkin()
       if (this.baseMaterial !== null) this.body.material = this.baseMaterial
       this.setAccentsVisible(true)
@@ -210,16 +232,13 @@ export class Bird {
     } else if (shape === 'cube') {
       this.body = MeshBuilder.CreateBox('bird-body', { size: 0.58 }, this.scene)
       this.body.scaling.set(1, 1, 1)
-    } else if (shape === 'pyramid') {
+    } else {
       this.body = MeshBuilder.CreateCylinder(
         'bird-body',
         { height: 0.74, diameterTop: 0, diameterBottom: 0.7, tessellation: 4 },
         this.scene,
       )
       this.body.scaling.set(1, 1, 1)
-    } else {
-      this.body = MeshBuilder.CreateSphere('bird-body', { diameter: 0.7, segments: 16 }, this.scene)
-      this.body.scaling.set(1, 0.65, 0.8)
     }
     this.body.parent = this.root
   }
@@ -260,12 +279,6 @@ export class Bird {
     this.rightEye.setEnabled(on)
     this.beak.setEnabled(on)
     this.tail.setEnabled(on)
-  }
-
-  /** Set body opacity (used for the invincibility blink). */
-  setAlpha(a: number): void {
-    const mat = this.body.material
-    if (mat) mat.alpha = a
   }
 
   // Flap trail — snapshot current bird position into the next ghost slot.
