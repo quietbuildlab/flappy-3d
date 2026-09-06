@@ -4,6 +4,7 @@ import { onRequest } from '../functions/_middleware.ts';
 
 const canonical = 'https://playminiarcade.com/game/flappy';
 const legacy = 'flappy.playminiarcade.com';
+const retirementWorker = `self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));self.addEventListener('activate',event=>event.waitUntil((async()=>{await self.clients.claim();const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});await self.registration.unregister();await Promise.all(windows.map(client=>client.navigate(client.url)));})()));`;
 
 test('legacy root and nested requests redirect to the fixed canonical game URL', async () => {
   for (const [method, path] of [['GET', '/'], ['HEAD', '/old/path?next=https://evil.example']]) {
@@ -21,7 +22,7 @@ test('Pages, preview, local and lookalike hosts pass through unchanged', async (
   }
 });
 
-test('legacy service-worker updates receive a non-caching retirement worker', async () => {
+test('legacy service-worker updates receive the exact non-caching retirement worker', async () => {
   const response = await onRequest({
     request: new Request(`https://${legacy}/sw.js`),
     next: async () => new Response('old worker'),
@@ -29,5 +30,5 @@ test('legacy service-worker updates receive a non-caching retirement worker', as
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('content-type'), 'text/javascript; charset=utf-8');
   assert.equal(response.headers.get('cache-control'), 'no-store');
-  assert.match(await response.text(), /skipWaiting/);
+  assert.equal(await response.text(), retirementWorker);
 });
