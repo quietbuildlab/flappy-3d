@@ -16,11 +16,11 @@ export interface CameraConfig {
 }
 
 export const CAMERA_VIEWS: Record<CameraView, CameraConfig> = {
-  // Behind + slightly above the bird, looking down the corridor (default).
+  // Behind + slightly above the bird, looking down the corridor.
   chase: { pos: { x: 0, y: 1.6, z: -7 }, target: { x: 0, y: 0, z: 6 }, followFactor: 0.3, fov: 0.85 },
   // Classic side-on Flappy framing: camera off the +X side looking across,
-  // pipes sweep past in Z. x=12 sits just outside the lane scenery.
-  side: { pos: { x: 12, y: 1.7, z: 0 }, target: { x: 0, y: 0, z: 0 }, followFactor: 0.32, fov: 0.92 },
+  // pipes move right to left, with the bird left of centre and a fixed horizon.
+  side: { pos: { x: 12, y: 0, z: 2 }, target: { x: 0, y: 0, z: 2 }, followFactor: 0, fov: 0.92 },
   // Pulled back and higher — a wide cinematic shot; tracks the bird gently.
   far: { pos: { x: 0, y: 4.5, z: -14 }, target: { x: 0, y: 0.4, z: 5 }, followFactor: 0.16, fov: 0.98 },
 }

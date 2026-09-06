@@ -9,6 +9,9 @@ export default defineConfig({
   use: {
     baseURL: 'https://quietbuildlab.github.io/flappy-3d/',
     trace: 'off',
+    launchOptions: process.env.PLAYWRIGHT_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH }
+      : {},
   },
   projects: [
     {

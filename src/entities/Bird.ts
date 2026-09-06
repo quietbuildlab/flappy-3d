@@ -202,6 +202,7 @@ export class Bird {
     const useFlat = !GEOMETRIC_SHAPES.has(shape) || this.currentImage !== null
     if (useFlat) {
       this.body = MeshBuilder.CreatePlane('bird-body', { width: 0.95, height: 0.95 }, this.scene)
+      this.body.billboardMode = TransformNode.BILLBOARDMODE_ALL
       this.body.scaling.set(1, 1, 1)
     } else if (shape === 'cube') {
       this.body = MeshBuilder.CreateBox('bird-body', { size: 0.58 }, this.scene)

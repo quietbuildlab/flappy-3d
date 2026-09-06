@@ -214,7 +214,7 @@ if (!webgl2Available()) {
       const s = actor.getSnapshot().value
       if (s !== 'playing' && s !== 'dying') return
       const cfg = CAMERA_VIEWS[currentView]
-      if (prefersReducedMotion(storage)) {
+      if (currentView === 'side' || prefersReducedMotion(storage)) {
         camera.position.y = cfg.pos.y
         return
       }

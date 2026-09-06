@@ -36,7 +36,8 @@ export interface SettingsV5 extends SettingsV4 {
   volumeMaster: number           // Phase 20 v1.8 (AUDIO-07); 0..1 master gain
   volumeMusic: number            // Phase 20 v1.8 (AUDIO-07); 0..1 music sub-bus gain
   volumeSfx: number              // Phase 20 v1.8 (AUDIO-07); 0..1 sfx sub-bus gain
-  cameraView: CameraView         // Babylon rebuild; default 'chase'
+  cameraView: CameraView         // Classic side-on view unless deliberately changed.
+  cameraViewChosen: boolean      // Distinguishes a player choice from the old saved default.
 }
 
 export interface LeaderboardEntry {
@@ -72,7 +73,8 @@ const DEFAULT_SETTINGS_V5: SettingsV5 = {
   volumeMaster: 0.7,    // master gain — applied via Howler.volume() globally
   volumeMusic: 0.4,     // music sub-bus — applied to music Howl on top of master
   volumeSfx: 0.6,       // sfx sub-bus — applied to flap/score/death/whoosh on top of master
-  cameraView: 'chase',  // default camera framing (behind the bird)
+  cameraView: 'side',
+  cameraViewChosen: false,
 }
 
 interface SaveV1 {
@@ -244,12 +246,15 @@ export class StorageManager {
   }
 
   getSettings(): SettingsV5 {
-    return { ...DEFAULT_SETTINGS_V5, ...this.load().settings }
+    const settings = { ...DEFAULT_SETTINGS_V5, ...this.load().settings }
+    if (!settings.cameraViewChosen && settings.cameraView === 'chase') settings.cameraView = 'side'
+    return settings
   }
 
   setSettings(partial: Partial<SettingsV5>): void {
     const data = this.load()
     data.settings = { ...data.settings, ...partial }
+    if (partial.cameraView !== undefined) data.settings.cameraViewChosen = true
     this.save(data)
   }
 
