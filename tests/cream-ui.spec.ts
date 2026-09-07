@@ -54,7 +54,11 @@ for (const [name, viewport] of Object.entries({
       await expect(page.locator('.title-letter').last()).toHaveCSS('opacity', '1')
       await page.locator('.title-heading').click()
       await expect(page.locator('.hud-screen.active')).toBeVisible()
-      await page.getByRole('button', { name: 'Pause', exact: true }).click()
+      // Send a real pointer click without waiting extra render frames while
+      // gravity runs. The fixed HUD button's current bounds locate the target.
+      const pauseButton = await page.getByRole('button', { name: 'Pause', exact: true }).boundingBox()
+      expect(pauseButton).not.toBeNull()
+      await page.mouse.click(pauseButton!.x + pauseButton!.width / 2, pauseButton!.y + pauseButton!.height / 2)
       await expect(page.locator('.pause-screen.active .result-card')).toBeVisible()
       await page.waitForTimeout(200) // Capture after the overlay crossfade.
       await page.screenshot({ path: testInfo.outputPath('pause.png') })
