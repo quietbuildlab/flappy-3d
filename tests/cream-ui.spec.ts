@@ -7,9 +7,11 @@ test('clicking start launches the bird just like Space does', async ({ page }) =
   await expect(page.locator('.title-screen.active')).toBeVisible()
   await page.waitForTimeout(1200)
   await page.locator('.title-heading').click()
+  const pauseButton = await page.getByRole('button', { name: 'Pause', exact: true }).boundingBox()
+  expect(pauseButton).not.toBeNull()
   // A click should launch, not drop straight into the floor before the next tap.
   await page.waitForTimeout(650)
-  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await page.mouse.click(pauseButton!.x + pauseButton!.width / 2, pauseButton!.y + pauseButton!.height / 2)
   await expect(page.locator('.pause-screen.active')).toBeVisible()
 })
 

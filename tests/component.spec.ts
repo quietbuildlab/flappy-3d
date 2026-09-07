@@ -77,12 +77,16 @@ test('plays, pauses, restarts, isolates host keys and saves, loads remote audio 
   await page.locator('#host-text').click()
   for (const key of ['Space', 'c', 'Enter', 'Escape']) await page.keyboard.press(key)
   await expect(game.locator('.pause-screen.active')).toBeVisible()
+  const hostText = await page.locator('#host-text').boundingBox()
+  expect(hostText).not.toBeNull()
   await game.getByRole('button', { name: 'Resume', exact: true }).click()
   // Keep flying while checking focus loss: the HUD also remains visible
   // during dying, when PAUSE deliberately cannot revive a finished round.
   await page.keyboard.press('Space')
   await expect(game.locator('.hud-screen.active')).toBeVisible()
-  await page.locator('#host-text').click()
+  // The target is static. Deliver input without spending live flight time
+  // waiting for locator.click's stable animation frames on software WebGL.
+  await page.mouse.click(hostText!.x + hostText!.width / 2, hostText!.y + hostText!.height / 2)
   try {
     await expect(game.locator('.pause-screen.active')).toBeVisible()
   } catch (error) {
@@ -159,7 +163,9 @@ test('portrait layout, resized canvas, native settings and fullscreen remain usa
   await page.evaluate(() => document.exitFullscreen())
   await game.locator('.title-heading').click()
   await expect(game.locator('.hud-screen.active')).toBeVisible()
-  await game.getByRole('button', { name: 'Pause', exact: true }).click()
+  const pauseButton = await game.getByRole('button', { name: 'Pause', exact: true }).boundingBox()
+  expect(pauseButton).not.toBeNull()
+  await page.mouse.click(pauseButton!.x + pauseButton!.width / 2, pauseButton!.y + pauseButton!.height / 2)
   await expect(game.locator('.pause-screen.active')).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('mobile-pause.png') })
 })
