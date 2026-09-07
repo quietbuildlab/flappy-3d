@@ -2,6 +2,20 @@ import { test, expect } from '@playwright/test'
 
 test.use({ baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5205/flappy-3d/' })
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const events: unknown[] = []
+    ;(window as any).inputTrace = events
+    for (const name of ['pointerdown', 'click', 'focusout']) document.addEventListener(name, event => {
+      events.push({ time: performance.now(), name, target: (event.target as Element)?.className, active: [...document.querySelectorAll('.screen.active, .hud-screen.active')].map(el => el.className) })
+    }, true)
+  })
+})
+
+test.afterEach(async ({ page }, info) => {
+  if (info.status !== info.expectedStatus) console.log('Native input trace:', JSON.stringify(await page.evaluate(() => ({ events: (window as any).inputTrace, active: [...document.querySelectorAll('.screen.active, .hud-screen.active')].map(el => el.className) }))))
+})
+
 test('clicking start launches the bird just like Space does', async ({ page }) => {
   await page.goto('./')
   await expect(page.locator('.title-screen.active')).toBeVisible()
