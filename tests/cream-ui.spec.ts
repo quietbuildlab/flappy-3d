@@ -38,6 +38,7 @@ for (const [name, viewport] of Object.entries({
 
     test('settings, play, pause, full results, and restart remain usable', async ({ page }, testInfo) => {
       test.setTimeout(45_000)
+      await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
       const errors: string[] = []
       page.on('pageerror', error => errors.push(error.message))
       await page.goto('./')
@@ -68,14 +69,21 @@ for (const [name, viewport] of Object.entries({
       await expect(page.locator('.title-screen.active')).toBeVisible()
       // As on the first launch, let the title entrance and initial render finish.
       await expect(page.locator('.title-letter').last()).toHaveCSS('opacity', '1')
-      await page.locator('.title-heading').click()
+      const title = await page.locator('.title-heading').boundingBox()
+      expect(title).not.toBeNull()
+      // CI can spend seconds locating the HUD. Hold this layout setup's time
+      // so it checks Pause before a natural collision; resume real time below.
+      await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'))
+      await page.mouse.click(title!.x + title!.width / 2, title!.y + title!.height / 2)
+      await page.clock.runFor(32)
       await expect(page.locator('.hud-screen.active')).toBeVisible()
-      // Send a real pointer click without waiting extra render frames while
-      // gravity runs. The fixed HUD button's current bounds locate the target.
+      // Send native pointer input to the fixed HUD button's observed bounds.
       const pauseButton = await page.getByRole('button', { name: 'Pause', exact: true }).boundingBox()
       expect(pauseButton).not.toBeNull()
       await page.mouse.click(pauseButton!.x + pauseButton!.width / 2, pauseButton!.y + pauseButton!.height / 2)
+      await page.clock.runFor(200)
       await expect(page.locator('.pause-screen.active .result-card')).toBeVisible()
+      await page.clock.resume()
       await page.waitForTimeout(200) // Capture after the overlay crossfade.
       await page.screenshot({ path: testInfo.outputPath('pause.png') })
       await page.getByRole('button', { name: 'Resume', exact: true }).click()
