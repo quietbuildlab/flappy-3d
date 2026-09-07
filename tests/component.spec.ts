@@ -49,32 +49,59 @@ for (const [device, viewport] of Object.entries({
 })) {
   test.describe(`Touch controls — ${device}`, () => {
     test.use({ viewport, hasTouch: true, isMobile: true })
+    test.beforeEach(async ({ page }) => {
+      await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+    })
 
-    test('repeated canvas taps flap without pausing; controls and outside focus still pause', async ({ page }) => {
+    test('repeated canvas taps flap without pausing, including after Resume', async ({ page }) => {
       await page.goto('/')
       const game = page.locator('pma-flappy')
       await expect(game.locator('.title-screen.active')).toBeVisible()
       await expect(game.locator('.title-letter').last()).toHaveCSS('opacity', '1')
+      // Advance real focus handlers and physics at a known cadence, independent
+      // of CI input latency. The other gameplay suites keep real wall time.
+      await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'))
       const canvas = await game.locator('canvas').boundingBox()
       expect(canvas).not.toBeNull()
       const x = canvas!.x + canvas!.width * 0.45
       const y = canvas!.y + canvas!.height * 0.4
-      for (let tap = 0; tap < 8; tap++) {
+      for (let tap = 0; tap < 3; tap++) {
         await page.touchscreen.tap(x, y)
-        await page.waitForTimeout(200)
+        await page.clock.runFor(200)
         await expect(game.locator('.pause-screen.active')).toHaveCount(0)
         await expect(game.locator('.gameover-screen.active')).toHaveCount(0)
       }
       const pause = await game.getByRole('button', { name: 'Pause', exact: true }).boundingBox()
       expect(pause).not.toBeNull()
       await page.touchscreen.tap(pause!.x + pause!.width / 2, pause!.y + pause!.height / 2)
+      await page.clock.runFor(200)
       await expect(game.locator('.pause-screen.active')).toBeVisible()
-      const outside = await page.locator('#host-text').boundingBox()
-      expect(outside).not.toBeNull()
-      await game.getByRole('button', { name: 'Resume', exact: true }).tap()
+      const resume = await game.getByRole('button', { name: 'Resume', exact: true }).boundingBox()
+      expect(resume).not.toBeNull()
+      await page.touchscreen.tap(resume!.x + resume!.width / 2, resume!.y + resume!.height / 2)
+      await page.clock.runFor(32)
       await page.touchscreen.tap(x, y)
+      await page.clock.runFor(200)
       await expect(game.locator('.pause-screen.active')).toHaveCount(0)
+      await expect(game.locator('.gameover-screen.active')).toHaveCount(0)
+    })
+
+    test('touching the host input pauses a fresh round', async ({ page }) => {
+      await page.goto('/')
+      const game = page.locator('pma-flappy')
+      await expect(game.locator('.title-screen.active')).toBeVisible()
+      await expect(game.locator('.title-letter').last()).toHaveCSS('opacity', '1')
+      await page.clock.pauseAt(new Date('2026-01-01T00:01:00Z'))
+      const canvas = await game.locator('canvas').boundingBox()
+      const outside = await page.locator('#host-text').boundingBox()
+      expect(canvas).not.toBeNull()
+      expect(outside).not.toBeNull()
+      // Start independently: an earlier flight's velocity must not decide
+      // whether this check reaches external focus before a real collision.
+      await page.touchscreen.tap(canvas!.x + canvas!.width * 0.45, canvas!.y + canvas!.height * 0.4)
+      await page.clock.runFor(32)
       await page.touchscreen.tap(outside!.x + outside!.width / 2, outside!.y + outside!.height / 2)
+      await page.clock.runFor(200)
       await expect(game.locator('.pause-screen.active')).toBeVisible()
     })
   })
