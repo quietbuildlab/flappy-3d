@@ -43,6 +43,43 @@ test('cross-origin component registers and renders a ready game', async ({ page 
   await expect.poll(() => page.evaluate(() => [...(window as any).draws.values()].reduce((a: number, b: number) => a + b, 0))).toBeGreaterThan(0)
 })
 
+for (const [device, viewport] of Object.entries({
+  phone: { width: 390, height: 844 },
+  tablet: { width: 820, height: 1180 },
+})) {
+  test.describe(`Touch controls — ${device}`, () => {
+    test.use({ viewport, hasTouch: true, isMobile: true })
+
+    test('repeated canvas taps flap without pausing; controls and outside focus still pause', async ({ page }) => {
+      await page.goto('/')
+      const game = page.locator('pma-flappy')
+      await expect(game.locator('.title-screen.active')).toBeVisible()
+      await expect(game.locator('.title-letter').last()).toHaveCSS('opacity', '1')
+      const canvas = await game.locator('canvas').boundingBox()
+      expect(canvas).not.toBeNull()
+      const x = canvas!.x + canvas!.width * 0.45
+      const y = canvas!.y + canvas!.height * 0.4
+      for (let tap = 0; tap < 8; tap++) {
+        await page.touchscreen.tap(x, y)
+        await page.waitForTimeout(200)
+        await expect(game.locator('.pause-screen.active')).toHaveCount(0)
+        await expect(game.locator('.gameover-screen.active')).toHaveCount(0)
+      }
+      const pause = await game.getByRole('button', { name: 'Pause', exact: true }).boundingBox()
+      expect(pause).not.toBeNull()
+      await page.touchscreen.tap(pause!.x + pause!.width / 2, pause!.y + pause!.height / 2)
+      await expect(game.locator('.pause-screen.active')).toBeVisible()
+      const outside = await page.locator('#host-text').boundingBox()
+      expect(outside).not.toBeNull()
+      await game.getByRole('button', { name: 'Resume', exact: true }).tap()
+      await page.touchscreen.tap(x, y)
+      await expect(game.locator('.pause-screen.active')).toHaveCount(0)
+      await page.touchscreen.tap(outside!.x + outside!.width / 2, outside!.y + outside!.height / 2)
+      await expect(game.locator('.pause-screen.active')).toBeVisible()
+    })
+  })
+}
+
 test('plays, pauses, restarts, isolates host keys and saves, loads remote audio without a host SW', async ({ page }, testInfo) => {
   const audio: string[] = []
   const errors: string[] = []

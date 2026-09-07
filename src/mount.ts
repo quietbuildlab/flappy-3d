@@ -309,8 +309,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}) {
     )
 
     const pause = () => { actor.send({ type: 'PAUSE' }); audio.setMusicPlaying(false) }
-    root.addEventListener('focusout', (e) => {
-      if (!(e.relatedTarget instanceof Node) || !root.contains(e.relatedTarget)) pause()
+    root.addEventListener('focusout', () => {
+      // Canvas and root focus can change within one touch. Check the settled
+      // focus, not a transient null relatedTarget inside the Shadow DOM.
+      later(() => { if (!root.matches(':focus-within')) pause() }, 0)
     }, { signal: ac.signal })
     window.addEventListener('blur', pause, { signal: ac.signal })
     root.addEventListener('pointerdown', (e) => {
