@@ -19,6 +19,7 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 
 - `src/loop/GameLoop.ts` owns fixed-step update timing.
 - `src/machine/gameMachine.ts` is the pure xstate game state machine. One collision ends the round via `dying` → `gameOver`; there are no lives, bonus lives or respawns. It must stay free of Babylon and DOM imports.
+- Every fresh round initializes the launch impulse in `mount.ts`, so title clicks, Enter, Space and Restart all begin airborne. Returning to title does not integrate that velocity; the next start resets it.
 - `src/input/InputManager.ts` normalizes pointer/keyboard input.
 - `src/storage/StorageManager.ts` owns localStorage persistence.
   The component uses `pma:flappy:v1` on its host origin; standalone keeps `flappy-3d:v1` on its own origin. The state machine no longer owns a storage singleton.
@@ -46,6 +47,7 @@ This is a Babylon.js 3D flappy game with a DOM overlay UI. Keep this file in syn
 
 - `tests/` contains Playwright UAT and visual checks.
 - `pnpm exec playwright test --config playwright.gameplay.config.ts` checks body clearance, cap/shaft corners, floor contact, and one-hit rounds across all three modes before CI builds.
+- UI acceptance waits for the title entrance after a reload and uses real flaps before testing focus loss. A visible HUD alone is not proof of live gameplay: it also appears during `dying`. The click-launch regression pauses after 650 ms without another flap to catch immediate free-fall starts.
 - `playwright.component.config.ts`, `tests/component.spec.ts`, `tests/component-host.html` and `tests/component-server.mjs` run the built component across two origins. See `docs/COMPONENT.md` for commands and acceptance evidence.
 - `playwright.standalone.config.ts` starts the same root-base preview for the existing cream and camera suites in CI; it leaves historical remote UAT configuration unchanged.
 - `vite.config.ts` emits stable `component.js` and shared hashed JS chunks alongside standalone/PWA output; `public/_headers` configures CORS and revalidation. Production asset retention is an explicit release gate.

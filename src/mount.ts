@@ -24,7 +24,7 @@ import { UIBridge } from './ui/UIBridge'
 import { squashStretch, screenShake, wingFlap, pulseFOV } from './anim/anim'
 import { createParticles } from './particles/createParticles'
 import { prefersReducedMotion } from './a11y/motion'
-import { PIPE_COLOR, POOL_SIZE } from './constants'
+import { PIPE_COLOR, POOL_SIZE, FLAP_IMPULSE } from './constants'
 import { applyCameraView, resizeSideCamera, CAMERA_VIEWS, CAMERA_VIEW_ORDER } from './render/cameraViews'
 import type { CameraView } from './render/cameraViews'
 import { mulberry32, dailySeed } from './utils/rng'
@@ -327,7 +327,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}) {
     const roundStarted = actor.on('roundStarted', () => {
       roundCount++
       bird.position.set(0, 0, 0)
-      bird.velocity.set(0, 0, 0)
+      bird.velocity.set(0, FLAP_IMPULSE, 0)
       bird.prevPosition.set(0, 0, 0)
       bird.root.rotation.z = 0
       bird.root.position.set(0, 0, 0)

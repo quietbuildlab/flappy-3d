@@ -2,6 +2,17 @@ import { test, expect } from '@playwright/test'
 
 test.use({ baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5205/flappy-3d/' })
 
+test('clicking start launches the bird just like Space does', async ({ page }) => {
+  await page.goto('./')
+  await expect(page.locator('.title-screen.active')).toBeVisible()
+  await page.waitForTimeout(1200)
+  await page.locator('.title-heading').click()
+  // A click should launch, not drop straight into the floor before the next tap.
+  await page.waitForTimeout(650)
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect(page.locator('.pause-screen.active')).toBeVisible()
+})
+
 for (const [name, viewport] of Object.entries({
   desktop: { width: 1280, height: 720 },
   mobile: { width: 390, height: 664 },
@@ -38,6 +49,9 @@ for (const [name, viewport] of Object.entries({
         localStorage.setItem('flappy-3d:v1', JSON.stringify(save))
       })
       await page.reload()
+      await expect(page.locator('.title-screen.active')).toBeVisible()
+      // As on the first launch, let the title entrance and initial render finish.
+      await expect(page.locator('.title-letter').last()).toHaveCSS('opacity', '1')
       await page.locator('.title-heading').click()
       await expect(page.locator('.hud-screen.active')).toBeVisible()
       await page.getByRole('button', { name: 'Pause', exact: true }).click()
